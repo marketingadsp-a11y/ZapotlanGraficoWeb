@@ -13,8 +13,10 @@ import { Share2, MessageCircle, Eye, Facebook, Twitter, Link as LinkIcon, ArrowL
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
+import { useSettings } from '@/lib/SettingsContext';
 
 export default function ArticleDetail() {
+  const { settings } = useSettings();
   const { slug } = useParams();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,12 +121,14 @@ export default function ArticleDetail() {
             </p>
 
             <div className="flex flex-wrap items-center gap-6 py-4 border-y border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-[#00AEEF] flex items-center justify-center text-white font-black">
-                  {article.author[0]}
+              {settings.showAuthor !== false && (
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-[#00AEEF] flex items-center justify-center text-white font-black">
+                    {article.author[0]}
+                  </div>
+                  <span className="text-slate-900">{article.author}</span>
                 </div>
-                <span className="text-slate-900">{article.author}</span>
-              </div>
+              )}
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-[#ED1C24]" />
                 <span>{format(article.createdAt.toDate(), "d 'de' MMMM, yyyy", { locale: es })}</span>

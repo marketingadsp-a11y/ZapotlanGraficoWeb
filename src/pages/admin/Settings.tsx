@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck } from 'lucide-react';
+import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SiteSettings>({
     logoUrl: '',
-    siteName: 'Zapotlán Gráfico'
+    siteName: 'Zapotlán Gráfico',
+    showAuthor: true
   });
 
   useEffect(() => {
@@ -108,6 +109,33 @@ export default function Settings() {
                         className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white transition-colors"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-900">Mostrar Autor</p>
+                        <p className="text-[10px] font-medium text-slate-400">¿Quieres que el nombre del autor aparezca en las notas?</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(prev => ({ ...prev, showAuthor: !prev.showAuthor }))}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        settings.showAuthor ? "bg-[#00AEEF]" : "bg-slate-200"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                          settings.showAuthor ? "translate-x-5" : "translate-x-0"
+                        )}
+                      />
+                    </button>
                   </div>
                   
                   {settings.logoUrl && (

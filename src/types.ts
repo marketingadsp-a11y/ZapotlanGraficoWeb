@@ -34,4 +34,5 @@ export interface SiteSettings {
   logoUrl: string;
   siteName: string;
   contactEmail?: string;
+  showAuthor?: boolean;
 }

@@ -11,8 +11,10 @@ import { es } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
 import { Play, TrendingUp, Clock, ChevronRight } from 'lucide-react';
+import { useSettings } from '@/lib/SettingsContext';
 
 export default function Home() {
+  const { settings } = useSettings();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -161,8 +163,12 @@ export default function Home() {
                   </div>
                   <div className="space-y-2 px-2">
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <span>{article.author}</span>
-                      <span>•</span>
+                      {settings.showAuthor !== false && (
+                        <>
+                          <span>{article.author}</span>
+                          <span>•</span>
+                        </>
+                      )}
                       <span>{format(article.createdAt.toDate(), "d MMM", { locale: es })}</span>
                     </div>
                     <h3 className="text-xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2">

@@ -11,8 +11,10 @@ import { es } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
 import { Play, Calendar, User, ChevronRight } from 'lucide-react';
+import { useSettings } from '@/lib/SettingsContext';
 
 export default function CategoryPage() {
+  const { settings } = useSettings();
   const { category } = useParams();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,11 +97,15 @@ export default function CategoryPage() {
                         <Calendar className="h-3 w-3 text-[#ED1C24]" />
                         {format(article.createdAt.toDate(), "d MMM, yyyy", { locale: es })}
                       </div>
-                      <span>•</span>
-                      <div className="flex items-center gap-1.5">
-                        <User className="h-3 w-3 text-[#00AEEF]" />
-                        {article.author}
-                      </div>
+                      {settings.showAuthor !== false && (
+                        <>
+                          <span>•</span>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3 w-3 text-[#00AEEF]" />
+                            {article.author}
+                          </div>
+                        </>
+                      )}
                     </div>
                     <h3 className="text-2xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2">
                       {article.title}
