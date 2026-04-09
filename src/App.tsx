@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { SettingsProvider } from '@/lib/SettingsContext';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from './components/ui/app-toaster.tsx';
 
 // Public Pages
 import Home from '@/pages/Home';
