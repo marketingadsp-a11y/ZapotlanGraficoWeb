@@ -16,28 +16,18 @@ export default async function handler(req: any, res: any) {
     }
 
     // 2. Gemini
-    const GenAIModule = await import("@google/genai");
-    // @ts-ignore
-    const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+    if (!apiKey) throw new Error("API Key missing");
     
-    if (!GoogleGenerativeAI) {
-      throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
-    }
-
-    const genAI = new (GoogleGenerativeAI as any)(apiKey);
-    const model = genAI.getGenerativeModel({
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-    });
-
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: `Format this Facebook post text into a professional news article JSON: "${text}"` }] }],
-      generationConfig: {
+      contents: `Format this Facebook post text into a professional news article JSON: "${text}"`,
+      config: {
         responseMimeType: "application/json",
-      },
+      }
     });
 
-    const response = await result.response;
-    res.status(200).json(JSON.parse(response.text() || "{}"));
+    res.status(200).json(JSON.parse(result.text || "{}"));
   } catch (error: any) {
     console.error("Format error details:", error);
     res.status(500).json({ 

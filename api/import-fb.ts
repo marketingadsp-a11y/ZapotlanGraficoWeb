@@ -40,20 +40,9 @@ export default async function handler(req: any, res: any) {
     }
 
     // 2. Gemini
-    const GenAIModule = await import("@google/genai");
-    // @ts-ignore
-    const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+    if (!apiKey) throw new Error("API Key missing");
     
-    if (!GoogleGenerativeAI) {
-      throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
-    }
-
-    const genAI = new (GoogleGenerativeAI as any)(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-    });
-
-    const prompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
+    const aiPrompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
       Raw Data:
       - Title: ${rawData.title}
       - Description: ${rawData.description}
@@ -67,15 +56,16 @@ export default async function handler(req: any, res: any) {
       
       Return a JSON object.`;
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
+    const ai = new GoogleGenAI({ apiKey });
+    const result = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: aiPrompt,
+      config: {
         responseMimeType: "application/json",
-      },
+      }
     });
 
-    const response = await result.response;
-    const parsedResult = JSON.parse(response.text() || "{}");
+    const parsedResult = JSON.parse(result.text || "{}");
     
     if (!parsedResult.imageUrl && rawData.imageUrl) parsedResult.imageUrl = rawData.imageUrl;
 

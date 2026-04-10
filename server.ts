@@ -41,31 +41,24 @@ async function startServer() {
         console.warn("Scraping failed:", scrapeError.message);
       }
 
-      const GenAIModule = await import("@google/genai");
-      // @ts-ignore
-      const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
       
-      if (!GoogleGenerativeAI) {
-        throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
-      }
-
-      const genAI = new (GoogleGenerativeAI as any)(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      const prompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
+      const aiPrompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
         Raw Data:
         - Title: ${rawData.title}
         - Description: ${rawData.description}
         Return a JSON object with title, content, summary, categories, tags, imageUrl, isVideo.`;
 
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: aiPrompt,
+        config: {
           responseMimeType: "application/json",
-        },
+        }
       });
 
-      const parsedResult = JSON.parse(result.response.text() || "{}");
+      const parsedResult = JSON.parse(result.text || "{}");
       if (!parsedResult.imageUrl && rawData.imageUrl) parsedResult.imageUrl = rawData.imageUrl;
 
       res.json(parsedResult);
@@ -84,27 +77,20 @@ async function startServer() {
         return res.status(500).json({ error: "Configuration Error", message: "GEMINI_API_KEY is not set" });
       }
 
-      const GenAIModule = await import("@google/genai");
-      // @ts-ignore
-      const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
       
-      if (!GoogleGenerativeAI) {
-        throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
-      }
+      const aiPrompt = `Format this Facebook post text into a professional news article JSON: "${text}"`;
 
-      const genAI = new (GoogleGenerativeAI as any)(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      const prompt = `Format this Facebook post text into a professional news article JSON: "${text}"`;
-
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
+      const result = await ai.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: aiPrompt,
+        config: {
           responseMimeType: "application/json",
-        },
+        }
       });
 
-      res.json(JSON.parse(result.response.text() || "{}"));
+      res.json(JSON.parse(result.text || "{}"));
     } catch (error: any) {
       res.status(500).json({ error: "Failed to format", message: error.message });
     }
