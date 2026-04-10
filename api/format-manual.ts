@@ -11,28 +11,32 @@ export default async function handler(req: any, res: any) {
   if (!text) return res.status(400).json({ error: "Text is required" });
 
   try {
-    const result = await (ai as any).getGenerativeModel({
+    const apiKey = process.env.GEMINI_API_KEY;
+    console.log("GEMINI_API_KEY present:", !!apiKey);
+    if (!apiKey) {
+      return res.status(500).json({ error: "Configuration Error", message: "GEMINI_API_KEY is not set in environment variables" });
+    }
+
+    const genAI = new GoogleGenAI({ apiKey });
+    const model = (genAI as any).getGenerativeModel({
       model: "gemini-2.0-flash",
-    }).generateContent({
+    });
+
+    const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: `Format this Facebook post text into a professional news article JSON: "${text}"` }] }],
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            content: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            categories: { type: Type.ARRAY, items: { type: Type.STRING } },
-            tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-          },
-          required: ["title", "content", "summary", "categories"],
-        },
       },
     });
 
-    res.status(200).json(JSON.parse(result.response.text() || "{}"));
+    const response = await result.response;
+    res.status(200).json(JSON.parse(response.text() || "{}"));
   } catch (error: any) {
-    res.status(500).json({ error: "Failed to format", message: error.message });
+    console.error("Format error details:", error);
+    res.status(500).json({ 
+      error: "Failed to format", 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

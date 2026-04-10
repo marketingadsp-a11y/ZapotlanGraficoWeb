@@ -10,7 +10,7 @@ export async function extractFacebookContent(url: string) {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Error ${response.status}`);
+        throw new Error(errorData.message || errorData.error || `Error ${response.status}`);
       } else {
         const text = await response.text();
         throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}...`);
@@ -36,7 +36,7 @@ export async function formatManualContent(text: string) {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `Error ${response.status}`);
+        throw new Error(errorData.message || errorData.error || `Error ${response.status}`);
       } else {
         const text = await response.text();
         throw new Error(`Server error (${response.status}): ${text.substring(0, 100)}...`);
