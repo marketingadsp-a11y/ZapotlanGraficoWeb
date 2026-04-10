@@ -41,9 +41,16 @@ async function startServer() {
         console.warn("Scraping failed:", scrapeError.message);
       }
 
-      const { GoogleGenAI } = await import("@google/genai");
-      const genAI = new GoogleGenAI({ apiKey });
-      const model = (genAI as any).getGenerativeModel({ model: "gemini-2.0-flash" });
+      const GenAIModule = await import("@google/genai");
+      // @ts-ignore
+      const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+      
+      if (!GoogleGenerativeAI) {
+        throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
+      }
+
+      const genAI = new (GoogleGenerativeAI as any)(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
         Raw Data:
@@ -77,9 +84,16 @@ async function startServer() {
         return res.status(500).json({ error: "Configuration Error", message: "GEMINI_API_KEY is not set" });
       }
 
-      const { GoogleGenAI } = await import("@google/genai");
-      const genAI = new GoogleGenAI({ apiKey });
-      const model = (genAI as any).getGenerativeModel({ model: "gemini-2.0-flash" });
+      const GenAIModule = await import("@google/genai");
+      // @ts-ignore
+      const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+      
+      if (!GoogleGenerativeAI) {
+        throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
+      }
+
+      const genAI = new (GoogleGenerativeAI as any)(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `Format this Facebook post text into a professional news article JSON: "${text}"`;
 

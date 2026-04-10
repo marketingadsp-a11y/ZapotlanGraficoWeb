@@ -1,8 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import axios from "axios";
 import * as cheerio from "cheerio";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -42,9 +40,17 @@ export default async function handler(req: any, res: any) {
     }
 
     // 2. Gemini
-    const genAI = new GoogleGenAI({ apiKey });
-    const model = (genAI as any).getGenerativeModel({
-      model: "gemini-2.0-flash",
+    const GenAIModule = await import("@google/genai");
+    // @ts-ignore
+    const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+    
+    if (!GoogleGenerativeAI) {
+      throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
+    }
+
+    const genAI = new (GoogleGenerativeAI as any)(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
     });
 
     const prompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.

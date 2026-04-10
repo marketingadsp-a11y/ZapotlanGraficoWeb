@@ -1,6 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -17,9 +15,18 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: "Configuration Error", message: "GEMINI_API_KEY is not set in environment variables" });
     }
 
-    const genAI = new GoogleGenAI({ apiKey });
-    const model = (genAI as any).getGenerativeModel({
-      model: "gemini-2.0-flash",
+    // 2. Gemini
+    const GenAIModule = await import("@google/genai");
+    // @ts-ignore
+    const GoogleGenerativeAI = GenAIModule.GoogleGenerativeAI || GenAIModule.GoogleGenAI;
+    
+    if (!GoogleGenerativeAI) {
+      throw new Error(`SDK Error: GoogleGenerativeAI class not found. Available keys: ${Object.keys(GenAIModule).join(', ')}`);
+    }
+
+    const genAI = new (GoogleGenerativeAI as any)(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
     });
 
     const result = await model.generateContent({
