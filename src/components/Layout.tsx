@@ -1,18 +1,26 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight } from 'lucide-react';
+import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useSettings } from '@/lib/SettingsContext';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const { settings } = useSettings();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = React.useState(false);
+  const { scrollY } = useScroll();
+  
+  const headerHeight = useTransform(scrollY, [0, 50], [80, 64]);
+  const headerBg = useTransform(
+    scrollY,
+    [0, 50],
+    ["rgba(255, 255, 255, 1)", "rgba(255, 255, 255, 0.8)"]
+  );
 
   React.useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -29,115 +37,174 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Top Bar */}
-      <div className="hidden lg:block bg-[#ED1C24] py-1.5 text-center text-[10px] font-black uppercase tracking-[0.2em] text-white">
-        {format(new Date(), "EEEE, d 'de' MMMM, yyyy", { locale: es })} • CIUDAD GUZMÁN, JALISCO
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-brand-blue/20 selection:text-brand-blue">
+      {/* Top Bar - More subtle and elegant */}
+      <div className="hidden lg:block bg-slate-900 py-2 text-center">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <Globe className="h-3 w-3 text-brand-blue" />
+              Zapotlán el Grande, Jalisco
+            </span>
+            <span className="h-1 w-1 rounded-full bg-slate-700" />
+            <span>{format(new Date(), "EEEE, d 'de' MMMM, yyyy", { locale: es })}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/admin/login" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white transition-colors">
+              Acceso Staff
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* Header */}
-      <header className={cn(
-        "sticky top-0 z-50 w-full transition-all duration-300",
-        isScrolled ? "bg-white/80 backdrop-blur-xl shadow-sm border-b border-slate-200 py-2" : "bg-white py-4 border-b border-slate-100"
-      )}>
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between">
-            {/* Mobile Menu */}
+      {/* Header - Modern Floating Style */}
+      <motion.header 
+        style={{ height: headerHeight, backgroundColor: headerBg }}
+        className={cn(
+          "sticky top-0 z-50 w-full transition-all duration-500 backdrop-blur-md",
+          isScrolled ? "shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-b border-slate-200/50" : "border-b border-transparent"
+        )}
+      >
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
+            {/* Mobile Menu Trigger */}
             <div className="lg:hidden">
               <Sheet>
                 <SheetTrigger
                   render={
-                    <Button variant="ghost" size="icon" className="rounded-full">
-                      <Menu className="h-6 w-6" />
+                    <Button variant="ghost" size="icon" className="rounded-2xl hover:bg-slate-100 transition-colors">
+                      <Menu className="h-6 w-6 text-slate-600" />
                     </Button>
                   }
                 />
-                <SheetContent side="left" className="w-[300px] p-0">
+                <SheetContent side="left" className="w-[320px] p-0 border-none bg-white">
                   <div className="flex flex-col h-full">
-                    <div className="p-6 border-b border-slate-100">
+                    <div className="p-8 border-b border-slate-50">
                       {settings.logoUrl ? (
-                        <img src={settings.logoUrl} alt="Logo" className="h-12 w-auto object-contain" />
+                        <img src={settings.logoUrl} alt="Logo" className="h-10 w-auto object-contain" />
                       ) : (
-                        <span className="text-2xl font-black tracking-tighter text-[#00AEEF]">ZAPOTLÁN GRÁFICO</span>
+                        <span className="text-xl font-black tracking-tighter text-brand-blue">ZAPOTLÁN <span className="text-brand-red">GRÁFICO</span></span>
                       )}
                     </div>
-                    <nav className="flex-1 p-6 space-y-2">
+                    <nav className="flex-1 p-6 space-y-1">
                       {mainNav.map((item) => (
                         <Link
                           key={item.path}
                           to={item.path}
                           className={cn(
-                            "flex items-center justify-between rounded-xl p-4 text-lg font-bold transition-all",
-                            location.pathname === item.path ? "bg-slate-100 text-[#00AEEF]" : "hover:bg-slate-50"
+                            "flex items-center justify-between rounded-2xl p-4 text-base font-bold transition-all group",
+                            location.pathname === item.path 
+                              ? "bg-brand-blue/5 text-brand-blue" 
+                              : "text-slate-600 hover:bg-slate-50"
                           )}
                         >
                           {item.label}
-                          <ChevronRight className="h-5 w-5 opacity-30" />
+                          <ChevronRight className={cn(
+                            "h-4 w-4 transition-transform group-hover:translate-x-1",
+                            location.pathname === item.path ? "opacity-100" : "opacity-20"
+                          )} />
                         </Link>
                       ))}
-                      <div className="py-4">
-                        <p className="px-4 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Categorías</p>
-                        {categories.map((cat) => (
-                          <Link
-                            key={cat}
-                            to={`/categoria/${cat}`}
-                            className="flex items-center justify-between rounded-xl p-4 text-base font-semibold text-slate-600 hover:bg-slate-50"
-                          >
-                            {cat}
-                          </Link>
-                        ))}
+                      <div className="pt-8 pb-4 px-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Secciones</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {categories.map((cat) => (
+                            <Link
+                              key={cat}
+                              to={`/categoria/${cat}`}
+                              className="px-4 py-3 rounded-xl bg-slate-50 text-xs font-bold text-slate-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
+                            >
+                              {cat}
+                            </Link>
+                          ))}
+                        </div>
                       </div>
                     </nav>
+                    <div className="p-8 bg-slate-50 mt-auto">
+                      <div className="flex gap-4 justify-center">
+                        {[Facebook, Twitter, Instagram].map((Icon, i) => (
+                          <Button key={i} variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                            <Icon className="h-5 w-5" />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
             </div>
 
-            {/* Logo */}
-            <Link to="/" className="flex items-center transition-transform hover:scale-105">
-              {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt={settings.siteName} className={cn("transition-all", isScrolled ? "h-10 lg:h-12" : "h-12 lg:h-16")} />
-              ) : (
-                <div className="flex flex-col items-center">
-                  <span className="text-2xl font-black tracking-tighter lg:text-3xl text-[#00AEEF]">ZAPOTLÁN <span className="text-[#ED1C24]">GRÁFICO</span></span>
-                  <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-400">Tu voz local en la región</span>
-                </div>
-              )}
+            {/* Logo - Elegant and centered on mobile */}
+            <Link to="/" className="flex items-center group">
+              <div className="relative">
+                {settings.logoUrl ? (
+                  <img 
+                    src={settings.logoUrl} 
+                    alt={settings.siteName} 
+                    className={cn("transition-all duration-500 group-hover:scale-105", isScrolled ? "h-8 lg:h-10" : "h-10 lg:h-14")} 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span className={cn(
+                      "font-black tracking-tighter transition-all duration-500",
+                      isScrolled ? "text-xl lg:text-2xl" : "text-2xl lg:text-4xl"
+                    )}>
+                      <span className="text-brand-blue">ZAPOTLÁN</span>
+                      <span className="text-brand-red">GRÁFICO</span>
+                    </span>
+                    {!isScrolled && (
+                      <motion.span 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-[7px] font-black uppercase tracking-[0.5em] text-slate-400 mt-1"
+                      >
+                        Periodismo con Identidad
+                      </motion.span>
+                    )}
+                  </div>
+                )}
+              </div>
             </Link>
 
-            {/* Desktop Nav */}
-            <nav className="hidden lg:flex items-center gap-8">
+            {/* Desktop Nav - Modern pill style */}
+            <nav className="hidden lg:flex items-center bg-slate-100/50 p-1.5 rounded-full border border-slate-200/50">
               {mainNav.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
                   className={cn(
-                    "relative text-sm font-black uppercase tracking-widest transition-colors",
-                    location.pathname === item.path ? "text-[#00AEEF]" : "text-slate-500 hover:text-slate-900"
+                    "relative px-6 py-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-full",
+                    location.pathname === item.path 
+                      ? "text-white" 
+                      : "text-slate-500 hover:text-slate-900"
                   )}
                 >
-                  {item.label}
+                  <span className="relative z-10">{item.label}</span>
                   {location.pathname === item.path && (
-                    <motion.div layoutId="nav-underline" className="absolute -bottom-2 left-0 right-0 h-1 bg-[#FFF200]" />
+                    <motion.div 
+                      layoutId="nav-pill" 
+                      className="absolute inset-0 bg-slate-900 rounded-full shadow-lg shadow-slate-200"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
                   )}
                 </Link>
               ))}
             </nav>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-[#FFF200]/20">
+            {/* Actions - Minimalist */}
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="rounded-2xl hover:bg-slate-100 text-slate-500">
                 <Search className="h-5 w-5" />
               </Button>
-              <Link to="/admin/login" className="hidden sm:block">
-                <Button variant="outline" className="rounded-full border-slate-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50">
-                  Acceso
-                </Button>
-              </Link>
+              <div className="hidden sm:block h-8 w-px bg-slate-200 mx-1" />
+              <Button variant="ghost" size="icon" className="rounded-2xl hover:bg-slate-100 text-slate-500 relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-brand-red border-2 border-white" />
+              </Button>
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Content */}
       <main className="min-h-[calc(100vh-400px)]">

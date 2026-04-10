@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Article, ActivityLog } from '@/types';
+import { Article } from '@/types';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, MessageCircle, FileText, TrendingUp, Clock, ArrowUpRight, Users } from 'lucide-react';
+import { Eye, MessageCircle, FileText, Clock, ArrowUpRight, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,6 @@ export default function Dashboard() {
     totalInteractions: 0
   });
   const [recentArticles, setRecentArticles] = useState<Article[]>([]);
-  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
 
   useEffect(() => {
     // Fetch total stats
@@ -44,15 +43,8 @@ export default function Dashboard() {
       setRecentArticles(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article)));
     });
 
-    // Listen for recent activity
-    const qActivity = query(collection(db, 'activity'), orderBy('timestamp', 'desc'), limit(10));
-    const unsubActivity = onSnapshot(qActivity, (snap) => {
-      setRecentActivity(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActivityLog)));
-    });
-
     return () => {
       unsubArticles();
-      unsubActivity();
     };
   }, []);
 
@@ -100,7 +92,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
+        <div className="grid gap-8 lg:grid-cols-1">
           {/* Recent Articles */}
           <Card className="border-none shadow-sm bg-white rounded-[2rem]">
             <CardHeader className="border-b border-slate-50 pb-4">
@@ -123,39 +115,6 @@ export default function Dashboard() {
                       <span className="flex items-center gap-1"><Eye className="h-3 w-3 text-[#00AEEF]" /> {article.views}</span>
                       <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3 text-[#ED1C24]" /> {article.interactions}</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card className="border-none shadow-sm bg-white rounded-[2rem]">
-            <CardHeader className="border-b border-slate-50 pb-4">
-              <CardTitle className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-900">
-                <TrendingUp className="h-4 w-4 text-[#00AEEF]" />
-                Actividad en Tiempo Real
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-6">
-                {recentActivity.map((log) => (
-                  <div key={log.id} className="flex items-center gap-4 text-sm">
-                    <div className={cn(
-                      "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                      log.type === 'view' ? 'bg-green-50 text-green-500' : log.type === 'share' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'
-                    )}>
-                      {log.type === 'view' ? <Eye className="h-5 w-5" /> : log.type === 'share' ? <TrendingUp className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tighter">
-                        {log.type === 'view' ? 'Nueva Vista' : log.type === 'share' ? 'Compartido' : 'Interacción'}
-                      </p>
-                      <p className="text-[10px] font-medium text-slate-400 truncate">Artículo ID: {log.articleId}</p>
-                    </div>
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                      {format(log.timestamp.toDate(), "HH:mm", { locale: es })}
-                    </span>
                   </div>
                 ))}
               </div>

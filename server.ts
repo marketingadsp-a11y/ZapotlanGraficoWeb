@@ -11,59 +11,99 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
-  app.post("/api/scrape-fb", async (req, res) => {
+  app.post("/api/import-fb", async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
     try {
-      // Use Facebook's crawler User-Agent which is more likely to be allowed to see OG tags
       const headers = {
         'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       };
       
-      const response = await axios.get(url, { 
-        headers,
-        timeout: 10000,
-        maxRedirects: 5
-      });
-
-      const $ = cheerio.load(response.data);
+      const scrapeResponse = await axios.get(url, { headers, timeout: 10000 });
+      const $ = cheerio.load(scrapeResponse.data);
       
-      // Try multiple selectors for metadata
-      const ogImage = $('meta[property="og:image"]').attr('content') || 
-                      $('meta[name="twitter:image"]').attr('content') ||
-                      $('link[rel="image_src"]').attr('href');
-                      
-      const ogDescription = $('meta[property="og:description"]').attr('content') || 
-                            $('meta[name="description"]').attr('content') ||
-                            $('meta[property="og:title"]').attr('content'); // Fallback to title if no description
-                            
-      const ogTitle = $('meta[property="og:title"]').attr('content') || 
-                      $('title').text() || 
-                      "Facebook Post";
+      const rawData = {
+        imageUrl: $('meta[property="og:image"]').attr('content') || "",
+        description: $('meta[property="og:description"]').attr('content') || "",
+        title: $('meta[property="og:title"]').attr('content') || $('title').text() || "Facebook Post"
+      };
 
-      res.json({
-        imageUrl: ogImage || "",
-        description: ogDescription || "",
-        title: ogTitle || ""
+      const { GoogleGenAI, Type } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+      const prompt = `You are a professional news editor. I will provide you with raw data scraped from a Facebook URL: ${url}.
+        Raw Data:
+        - Title: ${rawData.title}
+        - Description: ${rawData.description}
+        Return a JSON object with title, content, summary, categories, tags, imageUrl, isVideo.`;
+
+      const result = await (ai as any).getGenerativeModel({
+        model: "gemini-2.0-flash",
+      }).generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              content: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              categories: { type: Type.ARRAY, items: { type: Type.STRING } },
+              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+              imageUrl: { type: Type.STRING },
+              isVideo: { type: Type.BOOLEAN },
+            },
+            required: ["title", "content", "summary", "categories"],
+          },
+        },
       });
+
+      const parsedResult = JSON.parse(result.response.text() || "{}");
+      if (!parsedResult.imageUrl && rawData.imageUrl) parsedResult.imageUrl = rawData.imageUrl;
+
+      res.json(parsedResult);
     } catch (error: any) {
-      console.error("Scraping error:", error.message);
-      
-      // If it's an Axios error with a response, return that status
-      if (error.response) {
-        return res.status(error.response.status).json({ 
-          error: `Facebook returned ${error.response.status}`,
-          message: error.message
-        });
-      }
-      
-      res.status(500).json({ 
-        error: "Failed to scrape Facebook content",
-        message: error.message
+      res.status(500).json({ error: "Failed to import", message: error.message });
+    }
+  });
+
+  app.post("/api/format-manual", async (req, res) => {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Text is required" });
+
+    try {
+      const { GoogleGenAI, Type } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+
+      const prompt = `Format this Facebook post text into a professional news article JSON: "${text}"`;
+
+      const result = await (ai as any).getGenerativeModel({
+        model: "gemini-2.0-flash",
+      }).generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              content: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              categories: { type: Type.ARRAY, items: { type: Type.STRING } },
+              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ["title", "content", "summary", "categories"],
+          },
+        },
       });
+
+      res.json(JSON.parse(result.response.text() || "{}"));
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to format", message: error.message });
     }
   });
 

@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Eye, Share2, Calendar, FileText, ArrowUpRight } from 'lucide-react';
 import { motion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn, getSafeImageUrl } from '@/lib/utils';
 
 export default function WeeklyReport() {
   const [loading, setLoading] = useState(true);
@@ -218,7 +218,7 @@ export default function WeeklyReport() {
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden shrink-0">
                           <img 
-                            src={article.imageUrl} 
+                            src={getSafeImageUrl(article.imageUrl)} 
                             alt="" 
                             className="h-full w-full object-cover"
                             referrerPolicy="no-referrer"
