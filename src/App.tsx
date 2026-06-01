@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { SettingsProvider } from '@/lib/SettingsContext';
 import { Toaster } from '@/components/AppToaster';
+import SubscriptionModal from '@/components/SubscriptionModal';
 
 // Public Pages
 import Home from '@/pages/Home';
@@ -16,6 +17,7 @@ import ArticleEditor from '@/pages/admin/ArticleEditor';
 import FBImporter from '@/pages/admin/FBImporter';
 import WeeklyReport from '@/pages/admin/WeeklyReport';
 import Settings from '@/pages/admin/Settings';
+import Subscribers from '@/pages/admin/Subscribers';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAuth();
@@ -47,6 +49,7 @@ export default function App() {
                     <Route path="importar" element={<FBImporter />} />
                     <Route path="reporte" element={<WeeklyReport />} />
                     <Route path="ajustes" element={<Settings />} />
+                    <Route path="suscriptores" element={<Subscribers />} />
                     <Route path="*" element={<Navigate to="dashboard" />} />
                   </Routes>
                 </PrivateRoute>
@@ -54,6 +57,7 @@ export default function App() {
             />
           </Routes>
           <Toaster />
+          <SubscriptionModal />
         </BrowserRouter>
       </SettingsProvider>
     </AuthProvider>

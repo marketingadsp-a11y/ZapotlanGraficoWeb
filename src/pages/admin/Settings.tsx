@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key } from 'lucide-react';
+import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key, Bell, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +18,12 @@ export default function Settings() {
     logoUrl: '',
     siteName: 'Zapotlán Gráfico',
     showAuthor: true,
-    imgbbApiKey: ''
+    imgbbApiKey: '',
+    subscriptionModalEnabled: false,
+    subscriptionModalDelaySeconds: 5,
+    subscriptionModalTitle: '¡Recibe Alertas de Noticias!',
+    subscriptionModalDescription: 'Suscríbete GRATIS con tu número celular a nuestro canal de notificaciones y entérate antes que nadie de noticias y promociones locales.',
+    subscriptionModalTriggerType: 'session'
   });
 
   useEffect(() => {
@@ -29,7 +34,12 @@ export default function Settings() {
           const data = docSnap.data() as SiteSettings;
           setSettings({
             ...data,
-            imgbbApiKey: data.imgbbApiKey || ''
+            imgbbApiKey: data.imgbbApiKey || '',
+            subscriptionModalEnabled: data.subscriptionModalEnabled ?? false,
+            subscriptionModalDelaySeconds: data.subscriptionModalDelaySeconds ?? 5,
+            subscriptionModalTitle: data.subscriptionModalTitle || '',
+            subscriptionModalDescription: data.subscriptionModalDescription || '',
+            subscriptionModalTriggerType: data.subscriptionModalTriggerType || 'session'
           });
         }
       } catch (error) {
@@ -197,6 +207,120 @@ export default function Settings() {
                     Si no tienes una, regístrate de forma gratuita en <a href="https://api.imgbb.com/" target="_blank" rel="noopener noreferrer" className="text-[#00AEEF] underline font-bold hover:text-[#00AEEF]/80">api.imgbb.com</a> para obtener una clave de API. Las imágenes cargadas se almacenarán en tu cuenta de ImgBB.
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Modal de Suscripción Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+          >
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
+                      <Bell className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-900">Modal de Suscripción (Promociones & Alertas)</CardTitle>
+                      <CardDescription className="text-xs font-medium text-slate-400">Configura la visibilidad del diálogo de captación de celular para tus lectores.</CardDescription>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(prev => ({ ...prev, subscriptionModalEnabled: !prev.subscriptionModalEnabled }))}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                      settings.subscriptionModalEnabled ? "bg-[#00AEEF]" : "bg-slate-200"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                        settings.subscriptionModalEnabled ? "translate-x-5" : "translate-x-0"
+                      )}
+                    />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className={cn("p-8 space-y-6 transition-all duration-300", !settings.subscriptionModalEnabled && "opacity-40 select-none pointer-events-none")}>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Título del Diálogo</label>
+                    <Input 
+                      value={settings.subscriptionModalTitle || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, subscriptionModalTitle: e.target.value }))}
+                      className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs font-bold transition-colors"
+                      placeholder="Ej. ¡Únete a nuestro canal!"
+                      disabled={!settings.subscriptionModalEnabled}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Frecuencia / Criterio de Activación</label>
+                    <div className="flex gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 h-14 items-center">
+                      {[
+                        { id: 'session', label: '1 vez por Sesión' },
+                        { id: 'always', label: 'Siempre' },
+                        { id: 'timer', label: 'Por Tiempo' },
+                      ].map((trigger) => (
+                        <button
+                          key={trigger.id}
+                          type="button"
+                          onClick={() => setSettings(prev => ({ ...prev, subscriptionModalTriggerType: trigger.id as any }))}
+                          disabled={!settings.subscriptionModalEnabled}
+                          className={cn(
+                            "flex-1 text-[9px] font-black uppercase tracking-widest h-10 rounded-xl transition-all",
+                            settings.subscriptionModalTriggerType === trigger.id 
+                              ? "bg-slate-900 text-white shadow-md font-bold" 
+                              : "text-slate-400 hover:text-slate-700"
+                          )}
+                        >
+                          {trigger.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Texto de Invitación / Descripción</label>
+                  <textarea 
+                    value={settings.subscriptionModalDescription || ''}
+                    onChange={(e) => setSettings(prev => ({ ...prev, subscriptionModalDescription: e.target.value }))}
+                    className="min-h-[80px] w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white text-xs font-medium transition-colors outline-none focus:ring-1 focus:ring-slate-300 resize-none leading-relaxed"
+                    placeholder="Escribe el texto persuasivo para convencer a tus lectores..."
+                    disabled={!settings.subscriptionModalEnabled}
+                  />
+                </div>
+
+                {settings.subscriptionModalTriggerType === 'timer' && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="space-y-2"
+                  >
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Segundos de Retardo al Entrar</label>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        type="number"
+                        min="1"
+                        max="300"
+                        value={settings.subscriptionModalDelaySeconds || 5}
+                        onChange={(e) => setSettings(prev => ({ ...prev, subscriptionModalDelaySeconds: parseInt(e.target.value) || 5 }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs font-black transition-colors"
+                        disabled={!settings.subscriptionModalEnabled}
+                      />
+                    </div>
+                    <p className="text-[9px] text-slate-400 font-medium pl-2">
+                      La ventana de suscripción emergerá automáticamente tras transcurrir este número de segundos en la navegación de un usuario regular.
+                    </p>
+                  </motion.div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

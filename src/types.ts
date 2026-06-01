@@ -38,4 +38,16 @@ export interface SiteSettings {
   contactEmail?: string;
   showAuthor?: boolean;
   imgbbApiKey?: string;
+  subscriptionModalEnabled?: boolean;
+  subscriptionModalDelaySeconds?: number;
+  subscriptionModalTitle?: string;
+  subscriptionModalDescription?: string;
+  subscriptionModalTriggerType?: 'session' | 'timer' | 'always';
+}
+
+export interface Subscriber {
+  id: string;
+  name: string;
+  phoneNumber: string;
+  createdAt: Timestamp;
 }
