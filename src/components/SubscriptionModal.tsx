@@ -167,9 +167,20 @@ export default function SubscriptionModal() {
             {!success ? (
               <div className="space-y-6">
                 <div className="text-center space-y-3">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00AEEF]/10 text-[#00AEEF] animate-bounce">
-                    <Bell className="h-6 w-6" />
-                  </div>
+                  {settings.logoUrl ? (
+                    <div className="mx-auto flex h-16 w-auto max-w-[200px] items-center justify-center py-1">
+                      <img 
+                        src={settings.logoUrl} 
+                        alt="Logo" 
+                        className="max-h-12 max-w-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#00AEEF]/10 text-[#00AEEF] animate-bounce">
+                      <Bell className="h-6 w-6" />
+                    </div>
+                  )}
                   <h2 className="text-xl font-black text-slate-900 tracking-tight leading-snug">
                     {settings.subscriptionModalTitle || '¡Recibe Notificaciones Recientes!'}
                   </h2>

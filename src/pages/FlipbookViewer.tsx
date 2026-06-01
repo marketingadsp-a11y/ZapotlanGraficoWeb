@@ -279,7 +279,7 @@ export default function FlipbookViewer() {
 
   return (
     <div className={classNames(
-      "h-screen h-[100dvh] w-full bg-slate-950 flex flex-col justify-between text-white relative select-none overflow-hidden",
+      "h-screen h-[100dvh] w-full bg-slate-950 flex flex-col pb-16 text-white relative select-none overflow-hidden",
       isFullscreen ? "fixed inset-0 z-50" : ""
     )}>
       
@@ -586,8 +586,8 @@ export default function FlipbookViewer() {
 
       </div>
 
-      {/* Bottom Control Bar - Single-row design that is highly visual */}
-      <footer className="h-16 shrink-0 bg-slate-900/50 backdrop-blur-md px-4 border-t border-white/5 flex items-center justify-between z-10">
+      {/* Bottom Control Bar - Single-row design that is highly visual - Fixed to bottom */}
+      <footer className="fixed bottom-0 left-0 right-0 h-16 bg-slate-900/90 backdrop-blur-md px-4 border-t border-white/5 flex items-center justify-between z-30">
         
         {/* Navigation Step Indicators */}
         <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-400 font-mono">
