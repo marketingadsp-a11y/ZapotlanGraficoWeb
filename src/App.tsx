@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { SettingsProvider } from '@/lib/SettingsContext';
 import { Toaster } from '@/components/AppToaster';
 import SubscriptionModal from '@/components/SubscriptionModal';
+import ScrollToTop from '@/components/ScrollToTop';
 
 // Public Pages
 import Home from '@/pages/Home';
@@ -34,6 +35,7 @@ export default function App() {
     <AuthProvider>
       <SettingsProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
