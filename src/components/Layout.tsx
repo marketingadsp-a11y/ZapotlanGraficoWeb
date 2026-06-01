@@ -31,7 +31,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   const categories = ['Local', 'General', 'Deportes', 'Cultura', 'Policiaca'];
   const mainNav = [
     { label: 'Inicio', path: '/' },
-    { label: 'Noticias', path: '/categoria/General' },
+    { label: 'Noticias', path: '/noticias' },
     { label: 'Revista', path: '/revista' },
     { label: 'Videos', path: '/categoria/Videos' },
   ];
