@@ -26,12 +26,16 @@ export default function SubscriptionModal() {
       return;
     }
 
-    // Check if user is already registered in this local browser
-    const isSubscribedLocally = localStorage.getItem('zg_subscribed') === 'true';
-    if (isSubscribedLocally) return;
-
     const triggerType = settings.subscriptionModalTriggerType || 'session';
     const delaySecs = settings.subscriptionModalDelaySeconds || 5;
+
+    // Check if user is already registered in this local browser
+    const isSubscribedLocally = localStorage.getItem('zg_subscribed') === 'true';
+    
+    // Only bypass if not 'always' -- 'always' is a persistent prompt
+    if (triggerType !== 'always') {
+      if (isSubscribedLocally) return;
+    }
 
     const showPopup = () => {
       setIsOpen(true);
@@ -53,21 +57,17 @@ export default function SubscriptionModal() {
       }, delaySecs * 1000);
       return () => clearTimeout(timer);
     } else if (triggerType === 'always') {
-      // Show on every page load unless recently dismissed in the same hour
-      const lastDismissed = localStorage.getItem('zg_sub_modal_dismissed_time');
-      const oneHour = 60 * 60 * 1000;
-      if (!lastDismissed || Date.now() - parseInt(lastDismissed) > oneHour) {
-        const timer = setTimeout(() => {
-          showPopup();
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
+      // Unconditionally show on page load / navigation after a ultra-brief delay
+      const timer = setTimeout(() => {
+        showPopup();
+      }, 1500);
+      return () => clearTimeout(timer);
     }
   }, [settings, location.pathname]);
 
   const handleClose = () => {
     setIsOpen(false);
-    // Mark dismissal timestamp to prevent aggressive overlays under "always"
+    // Mark dismissal timestamp to prevent aggressive overlays under other conditions
     localStorage.setItem('zg_sub_modal_dismissed_time', Date.now().toString());
   };
 
@@ -191,7 +191,7 @@ export default function SubscriptionModal() {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Escribe tu nombre..."
-                        className="h-12 w-full pl-11 pr-4 rounded-xl border border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#00AEEF]/20 focus:border-[#00AEEF] transition-all"
+                        className="h-12 w-full pl-11 pr-4 rounded-xl border border-slate-100 bg-slate-50 text-base md:text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#00AEEF]/20 focus:border-[#00AEEF] transition-all"
                       />
                     </div>
                   </div>
@@ -218,7 +218,7 @@ export default function SubscriptionModal() {
                           setPhoneNumber(cleaned);
                         }}
                         placeholder="Ej. 341 123 4567"
-                        className="h-12 w-full pl-11 pr-4 rounded-xl border border-slate-100 bg-slate-50 text-xs font-mono font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#00AEEF]/20 focus:border-[#00AEEF] transition-all"
+                        className="h-12 w-full pl-11 pr-4 rounded-xl border border-slate-100 bg-slate-50 text-base md:text-sm font-mono font-bold outline-none focus:bg-white focus:ring-2 focus:ring-[#00AEEF]/20 focus:border-[#00AEEF] transition-all"
                       />
                     </div>
                   </div>
