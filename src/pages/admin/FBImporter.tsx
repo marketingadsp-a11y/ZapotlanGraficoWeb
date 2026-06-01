@@ -200,18 +200,34 @@ export default function FBImporter() {
                     </div>
                   </div>
                   <div className="space-y-6">
-                    {preview.imageUrl && (
+                    {preview.videoUrl ? (
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Imagen / Miniatura</p>
-                        <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-slate-100">
-                          <img 
-                            src={getSafeImageUrl(preview.imageUrl)} 
-                            className="h-full w-full object-cover" 
-                            alt="Preview"
-                            referrerPolicy="no-referrer"
-                          />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#00AEEF]">Video de Facebook</p>
+                        <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-slate-100 bg-slate-950">
+                          <iframe
+                            src={preview.videoUrl.includes('facebook.com') || preview.videoUrl.includes('fb.watch')
+                              ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(preview.videoUrl)}&show_text=0`
+                              : preview.videoUrl
+                            }
+                            className="h-full w-full border-0"
+                            allowFullScreen
+                          ></iframe>
                         </div>
                       </div>
+                    ) : (
+                      preview.imageUrl && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Imagen / Miniatura</p>
+                          <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-slate-100">
+                            <img 
+                              src={getSafeImageUrl(preview.imageUrl)} 
+                              className="h-full w-full object-cover" 
+                              alt="Preview"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        </div>
+                      )
                     )}
                     {preview.tags && preview.tags.length > 0 && (
                       <div className="space-y-2">

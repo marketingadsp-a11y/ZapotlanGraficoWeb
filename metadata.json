@@ -1,5 +1,6 @@
 {
   "name": "Zapotlán Gráfico",
   "description": "Medio de comunicación digital con noticias locales y generales, panel de administración e importador de contenido desde Facebook.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

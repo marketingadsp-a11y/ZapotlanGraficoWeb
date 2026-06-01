@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -18,12 +18,40 @@ export default async function handler(req: any, res: any) {
     // 2. Gemini
     if (!apiKey) throw new Error("API Key missing");
     
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ 
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       contents: `Format this Facebook post text into a professional news article JSON: "${text}"`,
       config: {
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "Un titular profesional para la nota periodística." },
+            content: { type: Type.STRING, description: "El contenido o cuerpo completo del artículo." },
+            summary: { type: Type.STRING, description: "Un resumen ejecutivo de dos oraciones." },
+            categories: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "Lista de categorías sugeridas como Deportes, Comunidad, Cultura, Seguridad, Política." 
+            },
+            tags: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "Etiquetas o hashtags relevantes sin el símbolo #." 
+            },
+            imageUrl: { type: Type.STRING, description: "La URL de la imagen principal si está disponible." },
+            videoUrl: { type: Type.STRING, description: "La URL del video o reel de de Facebook si se detecta en el texto." }
+          },
+          required: ["title", "content", "summary"]
+        }
       }
     });
 

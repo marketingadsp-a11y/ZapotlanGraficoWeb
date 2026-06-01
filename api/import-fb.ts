@@ -1,6 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -31,12 +31,11 @@ export default async function handler(req: any, res: any) {
       
       rawData = {
         imageUrl: $('meta[property="og:image"]').attr('content') || "",
-        description: $('meta[property="og:description"]').attr('content') || "",
+        description: $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "",
         title: $('meta[property="og:title"]').attr('content') || $('title').text() || "Facebook Post"
       };
     } catch (scrapeError: any) {
       console.warn("Scraping failed, proceeding with URL only:", scrapeError.message);
-      // We continue because Gemini might still be able to do something with just the URL or we can fallback
     }
 
     // 2. Gemini
@@ -54,20 +53,65 @@ export default async function handler(req: any, res: any) {
       4. Identify categories and tags.
       5. Use the provided imageUrl: ${rawData.imageUrl}
       
-      Return a JSON object.`;
+      Return a JSON object conforming to the schema.`;
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ 
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-3.5-flash",
       contents: aiPrompt,
       config: {
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "Un titular profesional para la nota periodística." },
+            content: { type: Type.STRING, description: "El contenido o cuerpo completo del artículo." },
+            summary: { type: Type.STRING, description: "Un resumen ejecutivo de dos oraciones." },
+            categories: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "Lista de categorías sugeridas como Deportes, Comunidad, Cultura, Seguridad, Política." 
+            },
+            tags: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "Etiquetas o hashtags relevantes sin el símbolo #." 
+            },
+            imageUrl: { type: Type.STRING, description: "La URL de la imagen principal si está disponible." },
+            videoUrl: { type: Type.STRING, description: "La URL del video o reel de de Facebook si el post original es de video." }
+          },
+          required: ["title", "content", "summary"]
+        }
       }
     });
 
     const parsedResult = JSON.parse(result.text || "{}");
     
     if (!parsedResult.imageUrl && rawData.imageUrl) parsedResult.imageUrl = rawData.imageUrl;
+
+    // Detect if the URL is a Facebook Video or Reel
+    const isFacebookVideoUrl = (urlStr: string): boolean => {
+      if (!urlStr) return false;
+      const lowerUrl = urlStr.toLowerCase();
+      return (
+        lowerUrl.includes('facebook.com/watch') ||
+        lowerUrl.includes('facebook.com/videos') ||
+        lowerUrl.includes('/reel/') ||
+        lowerUrl.includes('fb.watch') ||
+        lowerUrl.includes('facebook.com/share/v')
+      );
+    };
+
+    if (isFacebookVideoUrl(url)) {
+      parsedResult.videoUrl = url;
+    }
 
     res.status(200).json(parsedResult);
   } catch (error: any) {

@@ -145,9 +145,11 @@ export default function ArticleDetail() {
             {article.videoUrl ? (
               <div className="aspect-video w-full">
                 <iframe
-                  src={article.videoUrl.includes('facebook.com') 
-                    ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(article.videoUrl)}&show_text=0&width=560`
-                    : article.videoUrl.replace('watch?v=', 'embed/')
+                  src={article.videoUrl.includes('facebook.com') || article.videoUrl.includes('fb.watch') || article.videoUrl.includes('fb.me')
+                    ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(article.videoUrl)}&show_text=0`
+                    : article.videoUrl.includes('youtube.com') || article.videoUrl.includes('youtu.be')
+                      ? article.videoUrl.replace('watch?v=', 'embed/').split('&')[0].replace('youtu.be/', 'youtube.com/embed/')
+                      : article.videoUrl
                   }
                   className="h-full w-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
