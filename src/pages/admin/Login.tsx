@@ -8,6 +8,7 @@ import { Newspaper, Lock, User, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { useSettings } from '@/lib/SettingsContext';
+import NeuralBackground from '@/components/NeuralBackground';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -27,24 +28,34 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4 relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center p-4 relative overflow-hidden bg-slate-50">
+      {/* Interactive Floating Neural constellations Background */}
+      <NeuralBackground logoUrl={settings.logoUrl} />
+
       {/* Background Decorations */}
-      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-96 w-96 rounded-full bg-[#00AEEF]/5 blur-3xl" />
-      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-[#ED1C24]/5 blur-3xl" />
+      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-96 w-96 rounded-full bg-[#00AEEF]/5 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-[#ED1C24]/5 blur-3xl pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md relative z-10"
       >
-        <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden">
+        <Card className="border-none shadow-2xl bg-white/95 backdrop-blur-md rounded-[3rem] overflow-hidden">
           <CardHeader className="space-y-4 text-center p-10 pb-6">
-            <div className="mx-auto mb-2 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900 text-white shadow-xl rotate-3">
+            <div className="mx-auto mb-2 flex items-center justify-center">
               {settings.logoUrl ? (
-                <img src={settings.logoUrl} alt="Logo" className="h-12 w-12 object-contain" />
+                <img 
+                  src={settings.logoUrl} 
+                  alt="Logo" 
+                  className="h-24 w-auto object-contain max-h-24 select-none filter drop-shadow-sm" 
+                  referrerPolicy="no-referrer"
+                />
               ) : (
-                <Newspaper className="h-10 w-10" />
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-900 text-white shadow-xl rotate-3">
+                  <Newspaper className="h-12 w-12" />
+                </div>
               )}
             </div>
             <div className="space-y-1">

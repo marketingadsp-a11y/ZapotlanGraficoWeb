@@ -7,7 +7,9 @@ export interface Article {
   summary: string;
   imageUrl: string;
   videoUrl?: string;
+  videoAspectRatio?: 'vertical' | 'horizontal';
   categories: string[];
+  tags?: string[];
   author: string;
   createdAt: Timestamp;
   views: number;
@@ -35,4 +37,5 @@ export interface SiteSettings {
   siteName: string;
   contactEmail?: string;
   showAuthor?: boolean;
+  imgbbApiKey?: string;
 }

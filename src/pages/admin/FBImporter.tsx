@@ -36,7 +36,18 @@ export default function FBImporter() {
         toast.error('Facebook bloqueó el acceso automático. Por favor, usa la opción "Texto Manual" y pega la descripción de la publicación.');
         setImportMode('manual');
       } else {
-        setPreview(data);
+        // Detect if the video/url indicates a reel
+        let videoAspectRatio: 'horizontal' | 'vertical' = 'horizontal';
+        if (importMode === 'url' && url) {
+          const lowerUrl = url.toLowerCase();
+          if (lowerUrl.includes('/reel/') || lowerUrl.includes('/reels/')) {
+            videoAspectRatio = 'vertical';
+          }
+        }
+        setPreview({
+          ...data,
+          videoAspectRatio: data.videoAspectRatio || videoAspectRatio
+        });
         toast.success('Contenido procesado con éxito');
       }
     } catch (error: any) {
@@ -202,8 +213,39 @@ export default function FBImporter() {
                   <div className="space-y-6">
                     {preview.videoUrl ? (
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[#00AEEF]">Video de Facebook</p>
-                        <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-slate-100 bg-slate-950">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#00AEEF]">Video de Facebook</p>
+                          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 text-[9px] font-black">
+                            <button
+                              type="button"
+                              onClick={() => setPreview((prev: any) => ({ ...prev, videoAspectRatio: 'horizontal' }))}
+                              className={cn(
+                                "px-2 py-0.5 rounded uppercase tracking-widest transition-all text-[8px]",
+                                preview.videoAspectRatio !== 'vertical'
+                                  ? "bg-white text-[#00AEEF] shadow-sm font-bold"
+                                  : "text-slate-400 hover:text-slate-600"
+                              )}
+                            >
+                              Horizontal
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreview((prev: any) => ({ ...prev, videoAspectRatio: 'vertical' }))}
+                              className={cn(
+                                "px-2 py-0.5 rounded uppercase tracking-widest transition-all text-[8px]",
+                                preview.videoAspectRatio === 'vertical'
+                                  ? "bg-white text-[#ED1C24] shadow-sm font-bold"
+                                  : "text-slate-400 hover:text-slate-600"
+                              )}
+                            >
+                              Vertical
+                            </button>
+                          </div>
+                        </div>
+                        <div className={cn(
+                          "relative rounded-[2rem] overflow-hidden border border-slate-100 bg-slate-950 transition-all duration-300",
+                          preview.videoAspectRatio === 'vertical' ? "aspect-[9/16] max-w-[280px] mx-auto" : "aspect-video"
+                        )}>
                           <iframe
                             src={preview.videoUrl.includes('facebook.com') || preview.videoUrl.includes('fb.watch')
                               ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(preview.videoUrl)}&show_text=0`

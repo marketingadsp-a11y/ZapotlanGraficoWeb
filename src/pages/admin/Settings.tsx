@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User } from 'lucide-react';
+import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +17,8 @@ export default function Settings() {
   const [settings, setSettings] = useState<SiteSettings>({
     logoUrl: '',
     siteName: 'Zapotlán Gráfico',
-    showAuthor: true
+    showAuthor: true,
+    imgbbApiKey: ''
   });
 
   useEffect(() => {
@@ -25,7 +26,11 @@ export default function Settings() {
       try {
         const docSnap = await getDoc(doc(db, 'config', 'site'));
         if (docSnap.exists()) {
-          setSettings(docSnap.data() as SiteSettings);
+          const data = docSnap.data() as SiteSettings;
+          setSettings({
+            ...data,
+            imgbbApiKey: data.imgbbApiKey || ''
+          });
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -152,6 +157,45 @@ export default function Settings() {
                       </div>
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* ImgBB Integration Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
+                    <Key className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-900">Integración de Imágenes (ImgBB)</CardTitle>
+                    <CardDescription className="text-xs font-medium text-slate-400">Configura tu API Key para subir imágenes directamente desde el editor de artículos.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">API Key de ImgBB</label>
+                  <div className="relative">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                    <Input 
+                      type="password"
+                      value={settings.imgbbApiKey || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, imgbbApiKey: e.target.value }))}
+                      placeholder="Ingresa tu API Key de ImgBB..."
+                      className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs font-mono transition-colors"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium leading-relaxed pl-2">
+                    Si no tienes una, regístrate de forma gratuita en <a href="https://api.imgbb.com/" target="_blank" rel="noopener noreferrer" className="text-[#00AEEF] underline font-bold hover:text-[#00AEEF]/80">api.imgbb.com</a> para obtener una clave de API. Las imágenes cargadas se almacenarán en tu cuenta de ImgBB.
+                  </p>
                 </div>
               </CardContent>
             </Card>

@@ -12,7 +12,7 @@ import ReactMarkdown from 'react-markdown';
 import { Share2, MessageCircle, Eye, Facebook, Twitter, Link as LinkIcon, ArrowLeft, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { getSafeImageUrl } from '@/lib/utils';
+import { getSafeImageUrl, cn } from '@/lib/utils';
 import { useSettings } from '@/lib/SettingsContext';
 
 export default function ArticleDetail() {
@@ -141,9 +141,17 @@ export default function ArticleDetail() {
           </div>
 
           {/* Media */}
-          <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 shadow-2xl">
+          <div className={cn(
+            "relative overflow-hidden rounded-[2.5rem] bg-slate-900 shadow-2xl transition-all duration-300",
+            article.videoUrl && article.videoAspectRatio === 'vertical' 
+              ? "aspect-[9/16] max-w-sm mx-auto w-full border border-slate-800" 
+              : "w-full"
+          )}>
             {article.videoUrl ? (
-              <div className="aspect-video w-full">
+              <div className={cn(
+                "w-full h-full",
+                article.videoAspectRatio === 'vertical' ? "" : "aspect-video"
+              )}>
                 <iframe
                   src={article.videoUrl.includes('facebook.com') || article.videoUrl.includes('fb.watch') || article.videoUrl.includes('fb.me')
                     ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(article.videoUrl)}&show_text=0`
@@ -151,7 +159,7 @@ export default function ArticleDetail() {
                       ? article.videoUrl.replace('watch?v=', 'embed/').split('&')[0].replace('youtu.be/', 'youtube.com/embed/')
                       : article.videoUrl
                   }
-                  className="h-full w-full border-0"
+                  className="h-full w-full border-0 animate-fade-in"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 ></iframe>
@@ -175,6 +183,19 @@ export default function ArticleDetail() {
               prose-a:text-[#00AEEF] prose-a:no-underline hover:prose-a:underline
               prose-img:rounded-3xl prose-img:shadow-xl">
               <ReactMarkdown>{article.content}</ReactMarkdown>
+
+              {article.tags && article.tags.length > 0 && (
+                <div className="mt-12 flex flex-wrap gap-2.5 pt-6 border-t border-slate-100">
+                  {article.tags.map(tag => (
+                    <span 
+                      key={tag} 
+                      className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-[#00AEEF] bg-[#00AEEF]/5 hover:bg-[#00AEEF]/10 px-3.5 py-1.5 rounded-full transition-all"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Sticky Sidebar Actions */}
