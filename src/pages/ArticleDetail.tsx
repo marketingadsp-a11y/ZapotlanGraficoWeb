@@ -61,6 +61,45 @@ export default function ArticleDetail() {
     fetchArticle();
   }, [slug]);
 
+  useEffect(() => {
+    if (!article) return;
+
+    const previousTitle = document.title;
+    document.title = `${article.title} | ${settings.siteName || 'Zapotlán Gráfico'}`;
+
+    const updateMetaTag = (selector: string, attributeName: string, attributeValue: string, contentValue: string) => {
+      let element = document.querySelector(selector);
+      if (!element) {
+        element = document.createElement('meta');
+        element.setAttribute(attributeName, attributeValue);
+        document.head.appendChild(element);
+      }
+      element.setAttribute('content', contentValue || '');
+    };
+
+    const finalDescription = article.metaDescription || article.summary || '';
+    const finalOgTitle = article.ogTitle || article.title || '';
+    const finalOgDescription = article.ogDescription || finalDescription;
+    const finalOgImage = article.ogImage || article.imageUrl || '';
+
+    updateMetaTag('meta[name="description"]', 'name', 'description', finalDescription);
+    updateMetaTag('meta[property="og:title"]', 'property', 'og:title', finalOgTitle);
+    updateMetaTag('meta[property="og:description"]', 'property', 'og:description', finalOgDescription);
+    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', finalOgImage);
+    updateMetaTag('meta[property="og:url"]', 'property', 'og:url', window.location.href);
+    updateMetaTag('meta[property="og:type"]', 'property', 'og:type', 'article');
+
+    // Twitter
+    updateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    updateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', finalOgTitle);
+    updateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', finalOgDescription);
+    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', finalOgImage);
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [article, settings]);
+
   const handleShare = async (platform: string) => {
     if (!article) return;
     const url = window.location.href;

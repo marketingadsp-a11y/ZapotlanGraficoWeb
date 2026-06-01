@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Save, ArrowLeft, Image as ImageIcon, Video, Link as LinkIcon, Type, AlignLeft, User, Hash, Upload, Loader2, Settings, Key } from 'lucide-react';
+import { Save, ArrowLeft, Image as ImageIcon, Video, Link as LinkIcon, Type, AlignLeft, User, Hash, Upload, Loader2, Settings, Key, Globe } from 'lucide-react';
 import { getSafeImageUrl, cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import { useSettings } from '@/lib/SettingsContext';
@@ -39,7 +39,11 @@ export default function ArticleEditor() {
     author: 'Cristobal',
     views: 0,
     interactions: 0,
-    slug: ''
+    slug: '',
+    metaDescription: '',
+    ogTitle: '',
+    ogDescription: '',
+    ogImage: ''
   });
 
   const handleFileUpload = async (file: File) => {
@@ -115,7 +119,11 @@ export default function ArticleEditor() {
           setFormData({
             ...data,
             tags: data.tags || [],
-            videoAspectRatio: data.videoAspectRatio || 'horizontal'
+            videoAspectRatio: data.videoAspectRatio || 'horizontal',
+            metaDescription: data.metaDescription || '',
+            ogTitle: data.ogTitle || '',
+            ogDescription: data.ogDescription || '',
+            ogImage: data.ogImage || ''
           });
         }
       };
@@ -501,6 +509,92 @@ export default function ArticleEditor() {
                           Vertical (9:16)
                         </Button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* SEO & Open Graph Card */}
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-6 flex flex-row items-center gap-2">
+                <Globe className="h-4 w-4 text-[#00AEEF]" />
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-900">SEO y Redes Sociales</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                    <AlignLeft className="h-3 w-3 text-slate-400 font-black" /> Meta Descripción
+                  </label>
+                  <Textarea 
+                    value={formData.metaDescription || ''} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, metaDescription: e.target.value }))}
+                    className="min-h-[80px] rounded-xl border-slate-100 bg-slate-50 text-xs font-medium resize-none p-3"
+                    placeholder="Descripción para buscadores (Google). Si está vacío, se usará el Resumen Ejecutivo."
+                  />
+                  <p className="text-[9px] text-slate-400">Recomendado: menos de 160 caracteres.</p>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#ED1C24] block">
+                    Etiquetas Open Graph (Redes Sociales)
+                  </span>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      Título OG (og:title)
+                    </label>
+                    <Input 
+                      value={formData.ogTitle || ''} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, ogTitle: e.target.value }))}
+                      className="h-10 rounded-xl border-slate-100 bg-slate-50 text-xs font-bold px-3"
+                      placeholder="Título al compartir. Vacío = Título de la nota."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      Descripción OG (og:description)
+                    </label>
+                    <Textarea 
+                      value={formData.ogDescription || ''} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, ogDescription: e.target.value }))}
+                      className="min-h-[80px] rounded-xl border-slate-100 bg-slate-55 text-xs font-medium resize-none p-3"
+                      placeholder="Descripción al compartir. Vacío = Meta Descripción o Resumen."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      Imagen OG (og:image)
+                    </label>
+                    <Input 
+                      value={formData.ogImage || ''} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, ogImage: e.target.value }))}
+                      className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[10px] px-3"
+                      placeholder="URL de imagen para redes. Vacío = Imagen Principal."
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setFormData(prev => ({ ...prev, ogImage: formData.imageUrl || '' }))}
+                        disabled={!formData.imageUrl}
+                        className="text-[9px] font-black uppercase tracking-widest h-7 bg-slate-50 border border-slate-100 hover:bg-slate-100 px-3 rounded-lg text-slate-600"
+                      >
+                        Usar Imagen Principal
+                      </Button>
+                    </div>
+                  </div>
+
+                  {formData.ogImage && (
+                    <div className="mt-2 aspect-[1.91/1] overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+                      <img 
+                        src={getSafeImageUrl(formData.ogImage)} 
+                        alt="OG Preview" 
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   )}
                 </div>

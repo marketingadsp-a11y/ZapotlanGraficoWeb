@@ -15,6 +15,10 @@ export interface Article {
   views: number;
   interactions: number;
   slug: string;
+  metaDescription?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
 }
 
 export interface ActivityLog {

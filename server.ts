@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import * as cheerio from "cheerio";
+import fs from "fs";
 
 async function startServer() {
   const app = express();
@@ -178,7 +179,102 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Serve static files but disable index.html automatically on root folders so we can intercept
+    app.use(express.static(distPath, { index: false }));
+
+    // Helper to fetch article meta from Firestore REST API
+    const getArticleDetails = async (slug: string) => {
+      try {
+        const url = `https://firestore.googleapis.com/v1/projects/zapotlan-grafico-web/databases/(default)/documents:runQuery`;
+        const query = {
+          structuredQuery: {
+            from: [{ collectionId: 'articles' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'slug' },
+                op: 'EQUAL',
+                value: { stringValue: slug }
+              }
+            },
+            limit: 1
+          }
+        };
+        const response = await axios.post(url, query, { timeout: 4000 });
+        const results = response.data;
+        if (Array.isArray(results) && results[0] && results[0].document) {
+          const doc = results[0].document;
+          const fields = doc.fields || {};
+          
+          return {
+            title: fields.title?.stringValue || "",
+            summary: fields.summary?.stringValue || "",
+            imageUrl: fields.imageUrl?.stringValue || "",
+            metaDescription: fields.metaDescription?.stringValue || "",
+            ogTitle: fields.ogTitle?.stringValue || "",
+            ogDescription: fields.ogDescription?.stringValue || "",
+            ogImage: fields.ogImage?.stringValue || ""
+          };
+        }
+      } catch (err: any) {
+        console.error("Error fetching article description for dynamic meta tags:", err.message);
+      }
+      return null;
+    };
+
+    // Helper to inject meta tags into index.html
+    const injectMetaTags = (html: string, article: any) => {
+      if (!article) return html;
+
+      const title = article.title || "Zapotlán Gráfico";
+      const desc = (article.metaDescription || article.summary || "Noticias y novedades de Zapotlán.").replace(/"/g, '&quot;');
+      const ogTitle = (article.ogTitle || article.title || title).replace(/"/g, '&quot;');
+      const ogDesc = (article.ogDescription || desc).replace(/"/g, '&quot;');
+      const ogImage = article.ogImage || article.imageUrl || "";
+
+      const tags = `
+  <title>${title} | Zapotlán Gráfico</title>
+  <meta name="description" content="${desc}" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDesc}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDesc}" />
+  <meta name="twitter:image" content="${ogImage}" />
+`;
+
+      let output = html;
+      // Replace existing title if any
+      if (output.includes("<title>")) {
+        output = output.replace(/<title>[^<]*<\/title>/, "");
+      }
+      // Insert right before </head>
+      output = output.replace("</head>", `${tags}</head>`);
+      return output;
+    };
+
+    // Intercept article route to inject dynamic SEO/OpenGraph tags
+    app.get('/nota/:slug', async (req, res) => {
+      const { slug } = req.params;
+      const indexHtmlPath = path.join(distPath, 'index.html');
+      
+      try {
+        let html = fs.readFileSync(indexHtmlPath, 'utf-8');
+        const article = await getArticleDetails(slug);
+        
+        if (article) {
+          html = injectMetaTags(html, article);
+        }
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(html);
+      } catch (e: any) {
+        console.error("SEO pre-rendering error:", e.message);
+        return res.sendFile(indexHtmlPath);
+      }
+    });
+
+    // Default route for SPA
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
