@@ -58,11 +58,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </div>
 
       {/* Header - Modern Floating Style */}
-      <motion.header 
-        style={{ height: headerHeight, backgroundColor: headerBg }}
+      <header 
         className={cn(
-          "sticky top-0 z-50 w-full transition-all duration-500 backdrop-blur-md",
-          isScrolled ? "shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-b border-slate-200/50" : "border-b border-transparent"
+          "sticky top-0 z-50 w-full transition-all duration-300 backdrop-blur-md bg-white/95",
+          isScrolled 
+            ? "h-16 lg:h-20 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border-b border-slate-200/50" 
+            : "h-20 lg:h-24 border-b border-transparent"
         )}
       >
         <div className="container mx-auto px-4 h-full">
@@ -204,7 +205,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             </div>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       {/* Main Content */}
       <main className="min-h-[calc(100vh-400px)]">
