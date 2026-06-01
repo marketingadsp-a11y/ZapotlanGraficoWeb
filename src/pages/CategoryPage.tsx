@@ -12,12 +12,19 @@ import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
 import { Play, Calendar, User, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
 
 export default function CategoryPage() {
   const { settings } = useSettings();
   const { category } = useParams();
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // Find matching articles from local cache first for instant hydration!
+  const cachedCategoryArticles = category ? dataCache.articles.filter(
+    art => Array.isArray(art.categories) && art.categories.includes(category)
+  ) : [];
+  
+  const [articles, setArticles] = useState<Article[]>(cachedCategoryArticles);
+  const [loading, setLoading] = useState(cachedCategoryArticles.length === 0);
 
   useEffect(() => {
     if (!category) return;

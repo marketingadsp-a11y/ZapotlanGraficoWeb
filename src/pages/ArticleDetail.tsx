@@ -14,16 +14,28 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { getSafeImageUrl, cn } from '@/lib/utils';
 import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
 
 export default function ArticleDetail() {
   const { settings } = useSettings();
   const { slug } = useParams();
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Try to find the article in the local dataCache first for instant hydration!
+  const initialArticleValue = slug ? (dataCache.articles.find(a => a.slug === slug) || null) : null;
+  
+  const [article, setArticle] = useState<Article | null>(initialArticleValue);
+  const [loading, setLoading] = useState(!initialArticleValue);
 
   useEffect(() => {
     const fetchArticle = async () => {
       if (!slug) return;
+      
+      const cached = dataCache.articles.find(a => a.slug === slug);
+      if (cached) {
+        setArticle(cached);
+        setLoading(false);
+      }
+      
       const q = query(collection(db, 'articles'), where('slug', '==', slug));
       const snapshot = await getDocs(q);
       

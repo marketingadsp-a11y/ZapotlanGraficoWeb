@@ -12,11 +12,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
 import { Search, Play, Calendar, User, Hash, Grid, Filter } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
 
 export default function Noticias() {
   const { settings } = useSettings();
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [articles, setArticles] = useState<Article[]>(dataCache.articles);
+  const [loading, setLoading] = useState(!dataCache.hasFetchedArticles);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -29,6 +30,8 @@ export default function Noticias() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
+      dataCache.articles = docs;
+      dataCache.hasFetchedArticles = true;
       setArticles(docs);
       setLoading(false);
     }, (err) => {

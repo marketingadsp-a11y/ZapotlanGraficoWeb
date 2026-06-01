@@ -12,11 +12,12 @@ import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
 import { Play, TrendingUp, Clock, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
 
 export default function Home() {
   const { settings } = useSettings();
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [articles, setArticles] = useState<Article[]>(dataCache.articles);
+  const [loading, setLoading] = useState(!dataCache.hasFetchedArticles);
 
   useEffect(() => {
     const q = query(
@@ -27,6 +28,8 @@ export default function Home() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
+      dataCache.articles = docs;
+      dataCache.hasFetchedArticles = true;
       setArticles(docs);
       setLoading(false);
     });

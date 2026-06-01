@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { dataCache } from '@/lib/dataCache';
 
 interface Flipbook {
   id: string;
@@ -41,8 +42,12 @@ export default function FlipbookViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const [flipbook, setFlipbook] = useState<Flipbook | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Try to find the flipbook in the local dataCache first for instant hydration!
+  const initialFlipbookValue = id ? (dataCache.flipbooks.find(f => f.id === id) || null) : null;
+  
+  const [flipbook, setFlipbook] = useState<Flipbook | null>(initialFlipbookValue);
+  const [loading, setLoading] = useState(!initialFlipbookValue);
 
   // Flipbook state
   const [currentPage, setCurrentPage] = useState(0); // 0-indexed page index (for dual mode: 0 is cover, 1 is pages 2 & 3, etc.)
@@ -119,6 +124,12 @@ export default function FlipbookViewer() {
 
     const fetchDetail = async () => {
       try {
+        const cached = dataCache.flipbooks.find(f => f.id === id);
+        if (cached) {
+          setFlipbook(cached);
+          setLoading(false);
+        }
+
         const docRef = doc(db, 'flipbooks', id);
         const docSnap = await getDoc(docRef);
         

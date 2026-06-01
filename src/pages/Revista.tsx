@@ -22,18 +22,23 @@ interface Flipbook {
   views: number;
 }
 
+import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
+
 export default function Revista() {
-  const [flipbooks, setFlipbooks] = useState<Flipbook[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [flipbooks, setFlipbooks] = useState<any[]>(dataCache.flipbooks);
+  const [loading, setLoading] = useState(!dataCache.hasFetchedFlipbooks);
 
   useEffect(() => {
     const q = query(collection(db, 'flipbooks'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs: Flipbook[] = [];
+      const docs: any[] = [];
       snapshot.forEach((doc) => {
-        docs.push({ id: doc.id, ...doc.data() } as Flipbook);
+        docs.push({ id: doc.id, ...doc.data() });
       });
+      dataCache.flipbooks = docs;
+      dataCache.hasFetchedFlipbooks = true;
       setFlipbooks(docs);
       setLoading(false);
     }, (err) => {
