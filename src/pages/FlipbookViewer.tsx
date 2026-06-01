@@ -16,8 +16,11 @@ import {
   Grid,
   X,
   Share2,
-  Calendar
+  Calendar,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
+import { useSettings } from '@/lib/SettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -37,6 +40,7 @@ interface Flipbook {
 export default function FlipbookViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [flipbook, setFlipbook] = useState<Flipbook | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +50,16 @@ export default function FlipbookViewer() {
   const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showThumbnails, setShowThumbnails] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 1));
+  const handleResetZoom = () => setZoomLevel(1);
+
+  // Reset zoom level on page turn
+  useEffect(() => {
+    setZoomLevel(1);
+  }, [currentPage]);
 
   // Detect mobile width for responsive viewing modes
   useEffect(() => {
@@ -220,81 +234,142 @@ export default function FlipbookViewer() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#00AEEF]/5 rounded-full blur-[160px] pointer-events-none" />
 
       {/* Top Controller Header */}
-      <header className="z-10 bg-slate-900/40 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <Link 
-            to="/revista"
-            className="flex h-10 items-center justify-center rounded-xl bg-white/5 hover:bg-[#ED1C24] transition-all px-4 group gap-2"
-          >
-            <X className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-200 group-hover:text-white">Cerrar Visor</span>
-          </Link>
+      <header className="z-10 bg-slate-900/45 backdrop-blur-md px-6 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-b border-white/5">
+        <div className="flex items-center justify-between lg:justify-start gap-4 w-full lg:w-auto">
+          <div className="flex items-center gap-4">
+            <Link 
+              to="/revista"
+              className="flex h-10 items-center justify-center rounded-xl bg-white/5 hover:bg-[#ED1C24] transition-all px-4 group gap-2"
+            >
+              <X className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-200 group-hover:text-white">Cerrar</span>
+            </Link>
 
-          <div className="hidden sm:block">
-            <h1 className="text-xs font-black tracking-tight uppercase max-w-md truncate">{flipbook.title}</h1>
-            <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[#00AEEF] mt-0.5">
-              <Calendar className="h-3 w-3" />
-              <span>
-                {flipbook.createdAt 
-                  ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
-                  : "Reciente"}
-              </span>
+            <div className="hidden sm:block">
+              <h1 className="text-xs font-black tracking-tight uppercase max-w-xs md:max-w-md truncate">{flipbook.title}</h1>
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[#00AEEF] mt-0.5">
+                <Calendar className="h-3 w-3" />
+                <span>
+                  {flipbook.createdAt 
+                    ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
+                    : "Reciente"}
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Responsive Brand Logo on mobile shown only when header stacks */}
+          <div className="lg:hidden shrink-0 flex items-center pr-2">
+            {settings.logoUrl ? (
+              <img 
+                src={settings.logoUrl} 
+                alt="Logo Zapotlán Gráfico" 
+                className="h-8 max-w-[120px] object-contain brightness-0 invert opacity-90" 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span className="text-[10px] font-black tracking-tighter text-[#00AEEF] uppercase">ZAPOTLÁN <span className="text-white">GRÁFICO</span></span>
+            )}
           </div>
         </div>
 
+        {/* Brand Logo - Centered beautifully on larger screens */}
+        <div className="hidden lg:flex items-center justify-center absolute left-1/2 -translate-x-1/2 pointer-events-none">
+          {settings.logoUrl ? (
+            <img 
+              src={settings.logoUrl} 
+              alt="Logo Zapotlán Gráfico" 
+              className="h-9 max-w-[170px] object-contain brightness-0 invert opacity-90 pointer-events-auto hover:opacity-100 transition-opacity" 
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <span className="text-xs font-black tracking-tighter text-[#00AEEF] uppercase pointer-events-auto">ZAPOTLÁN <span className="text-white">GRÁFICO</span></span>
+          )}
+        </div>
+
         {/* Action Widgets */}
-        <div className="flex items-center gap-2.5">
-          {/* Autoplay logic */}
-          <Button
-            variant="ghost"
-            onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
-            className={`h-10 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2 max-xs:px-2 ${
-              isAutoPlayEnabled ? "bg-[#FFF200] text-slate-950 hover:bg-[#FFF200]/95" : "bg-white/5 text-white hover:bg-white/10"
-            }`}
-          >
-            {isAutoPlayEnabled ? (
-              <>
-                <Pause className="h-3.5 w-3.5" />
-                <span>Pausar</span>
-              </>
-            ) : (
-              <>
-                <Play className="h-3.5 w-3.5" />
-                <span>Auto-Lectura</span>
-              </>
-            )}
-          </Button>
+        <div className="flex items-center gap-2.5 flex-wrap justify-between lg:justify-end w-full lg:w-auto">
+          {/* Zoom Level group controls */}
+          <div className="flex items-center bg-white/5 rounded-xl border border-white/5 overflow-hidden">
+            <Button
+              variant="ghost"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 1}
+              className="h-10 w-10 p-0 text-slate-400 hover:text-white disabled:opacity-20 hover:bg-white/5 rounded-none"
+              title="Alejar (Zoom -)"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <button
+              onClick={handleResetZoom}
+              className="px-2.5 h-10 text-[9px] font-bold text-slate-300 hover:text-white font-mono bg-transparent"
+              title="Restablecer escala original"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <Button
+              variant="ghost"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 3}
+              className="h-10 w-10 p-0 text-slate-400 hover:text-white disabled:opacity-20 hover:bg-white/5 rounded-none"
+              title="Acercar (Zoom +)"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
 
-          {/* Grid Thumbnails trigger */}
-          <Button
-            variant="ghost"
-            onClick={() => setShowThumbnails(!showThumbnails)}
-            className={`h-10 w-10 p-0 rounded-xl ${showThumbnails ? "bg-[#00AEEF] text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
-            title="Mostrar Miniaturas"
-          >
-            <Grid className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Autoplay logic */}
+            <Button
+              variant="ghost"
+              onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
+              className={`h-10 px-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest gap-2 ${
+                isAutoPlayEnabled ? "bg-[#FFF200] text-slate-950 hover:bg-[#FFF200]/95" : "bg-white/5 text-white hover:bg-white/10"
+              }`}
+            >
+              {isAutoPlayEnabled ? (
+                <>
+                  <Pause className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Pausar</span>
+                </>
+              ) : (
+                <>
+                  <Play className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Lectura</span>
+                </>
+              )}
+            </Button>
 
-          {/* Share button */}
-          <Button
-            variant="ghost"
-            onClick={handleShareUrl}
-            className="h-10 w-10 p-0 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10"
-            title="Compartir Edición"
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
+            {/* Grid Thumbnails trigger */}
+            <Button
+              variant="ghost"
+              onClick={() => setShowThumbnails(!showThumbnails)}
+              className={`h-10 w-10 p-0 rounded-xl ${showThumbnails ? "bg-[#00AEEF] text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}
+              title="Mostrar Miniaturas"
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
 
-          {/* Toggle Fullscreen mode */}
-          <Button
-            variant="ghost"
-            onClick={toggleFullscreen}
-            className="h-10 w-10 p-0 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10"
-            title="Pantalla Completa"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
+            {/* Share button */}
+            <Button
+              variant="ghost"
+              onClick={handleShareUrl}
+              className="h-10 w-10 p-0 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10"
+              title="Compartir Edición"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+
+            {/* Toggle Fullscreen mode */}
+            <Button
+              variant="ghost"
+              onClick={toggleFullscreen}
+              className="h-10 w-10 p-0 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10"
+              title="Pantalla Completa"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -322,16 +397,23 @@ export default function FlipbookViewer() {
         )}
 
         {/* Content Viewer viewport */}
-        <div className="relative w-full max-w-5xl h-[70vh] flex items-center justify-center">
+        <div className="relative w-full max-w-6xl h-[72vh] flex items-center justify-center overflow-auto rounded-[2rem] bg-slate-950/20 p-2 md:p-6 border border-white/5 shadow-inner">
           
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPage}
-              initial={{ opacity: 0, x: 25, rotateY: 15 }}
+              initial={{ opacity: 0, x: 25, rotateY: 10 }}
               animate={{ opacity: 1, x: 0, rotateY: 0 }}
-              exit={{ opacity: 0, x: -25, rotateY: -15 }}
-              transition={{ duration: 0.4 }}
-              className="w-full h-full flex items-center justify-center perspective-[1200px]"
+              exit={{ opacity: 0, x: -25, rotateY: -10 }}
+              transition={{ duration: 0.35 }}
+              style={{ 
+                transform: `rotateY(0deg) scale(${zoomLevel})`,
+                transformOrigin: 'center center',
+                minWidth: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%',
+                minHeight: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%',
+                cursor: zoomLevel > 1 ? 'grab' : 'default'
+              }}
+              className="w-full h-full flex items-center justify-center perspective-[1200px] transition-transform duration-200"
             >
               {isMobile ? (
                 /* Mobile Layout: 1 Page Render on Screen */
@@ -349,11 +431,11 @@ export default function FlipbookViewer() {
                 /* Desktop Layout: True Dual-Page Side-by-Side realism */
                 currentPage === 0 ? (
                   /* Index 0 is the COVER: render single page centered on screen with binder on left */
-                  <div className="relative h-full aspect-[3/4] bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/10 translate-x-12 max-w-md">
+                  <div className="relative h-full aspect-[3/4] bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/10 max-w-md">
                     <img 
                       src={flipbook.pageUrls[0]} 
                       alt="Portada Revista" 
-                      className="w-full h-full object-cover pointer-events-none"
+                      className="w-full h-full object-contain pointer-events-none"
                       referrerPolicy="no-referrer"
                     />
                     
@@ -364,15 +446,15 @@ export default function FlipbookViewer() {
                   </div>
                 ) : (
                   /* Indexes > 0: Render true open booklet spreads */
-                  <div className="w-full h-full flex items-center justify-center gap-1">
+                  <div className="w-full h-full flex items-center justify-center gap-1.5 p-2">
                     
                     {/* LEFT PAGE SPREAD */}
-                    <div className="relative h-full aspect-[3/4] bg-slate-900 rounded-l-[2rem] overflow-hidden shadow-[10px_25px_50px_rgba(0,0,0,0.5)] border border-r-0 border-white/5 select-none">
+                    <div className="relative h-full flex-1 aspect-[3/4] bg-slate-900 rounded-l-[2rem] overflow-hidden shadow-[10px_25px_50px_rgba(0,0,0,0.5)] border border-r-0 border-white/5 select-none font-sans">
                       {flipbook.pageUrls[currentPage * 2] ? (
                         <img 
                           src={flipbook.pageUrls[currentPage * 2]} 
                           alt={`Pág. ${currentPage * 2}`}
-                          className="w-full h-full object-cover pointer-events-none"
+                          className="w-full h-full object-contain pointer-events-none"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
@@ -380,16 +462,16 @@ export default function FlipbookViewer() {
                       )}
                       
                       {/* Crease shadow layout for dual booklet page effect (on right of left page) */}
-                      <div className="absolute top-0 bottom-0 right-0 w-8 bg-gradient-to-l from-black/50 via-black/10 to-transparent pointer-events-none" />
+                      <div className="absolute top-0 bottom-0 right-0 w-10 bg-gradient-to-l from-black/60 via-black/10 to-transparent pointer-events-none" />
                     </div>
 
                     {/* RIGHT PAGE SPREAD */}
-                    <div className="relative h-full aspect-[3/4] bg-slate-900 rounded-r-[2rem] overflow-hidden shadow-[-10px_25px_50px_rgba(0,0,0,0.5)] border border-l-0 border-white/5 select-none">
+                    <div className="relative h-full flex-1 aspect-[3/4] bg-slate-900 rounded-r-[2rem] overflow-hidden shadow-[-10px_25px_50px_rgba(0,0,0,0.5)] border border-l-0 border-white/5 select-none font-sans">
                       {flipbook.pageUrls[currentPage * 2 + 1] ? (
                         <img 
                           src={flipbook.pageUrls[currentPage * 2 + 1]} 
                           alt={`Pág. ${currentPage * 2 + 1}`}
-                          className="w-full h-full object-cover pointer-events-none"
+                          className="w-full h-full object-contain pointer-events-none"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
@@ -397,7 +479,7 @@ export default function FlipbookViewer() {
                       )}
 
                       {/* Crease shadow layout for dual booklet page effect (on left of right page) */}
-                      <div className="absolute top-0 bottom-0 left-0 w-8 bg-gradient-to-r from-black/50 via-black/10 to-transparent pointer-events-none" />
+                      <div className="absolute top-0 bottom-0 left-0 w-10 bg-gradient-to-r from-black/60 via-black/10 to-transparent pointer-events-none" />
                     </div>
 
                   </div>
@@ -493,7 +575,7 @@ export default function FlipbookViewer() {
             variant="ghost"
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className="h-10 gap-1.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 text-white font-black text-[9px] uppercase tracking-wider"
+            className="h-10 gap-1.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 text-white font-black text-[9px] uppercase tracking-wider transition-all"
           >
             <ChevronLeft className="h-4 w-4" />
             <span>Atrás</span>
@@ -504,7 +586,7 @@ export default function FlipbookViewer() {
             variant="ghost"
             onClick={handleNext}
             disabled={currentPage === maxIndex}
-            className="h-10 gap-1.5 px-4 rounded-xl bg-white text-slate-950 hover:bg-[#00AEEF] hover:text-white disabled:opacity-20 text-white font-black text-[9px] uppercase tracking-wider transition-colors"
+            className="h-10 gap-1.5 px-4 rounded-xl bg-[#00AEEF] text-white hover:bg-[#00AEEF]/80 disabled:bg-white/10 disabled:text-white/40 font-black text-[9px] uppercase tracking-wider transition-all shadow-md shadow-[#00AEEF]/10 border border-white/5"
           >
             <span>Siguiente</span>
             <ChevronRight className="h-4 w-4" />
