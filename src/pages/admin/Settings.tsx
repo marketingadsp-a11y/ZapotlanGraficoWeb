@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key, Bell, Clock } from 'lucide-react';
+import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key, Bell, Clock, Facebook, Instagram, Twitter, Youtube, Video } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,12 @@ export default function Settings() {
     subscriptionModalDelaySeconds: 5,
     subscriptionModalTitle: '¡Recibe Alertas de Noticias!',
     subscriptionModalDescription: 'Suscríbete GRATIS con tu número celular a nuestro canal de notificaciones y entérate antes que nadie de noticias y promociones locales.',
-    subscriptionModalTriggerType: 'session'
+    subscriptionModalTriggerType: 'session',
+    facebookUrl: '',
+    instagramUrl: '',
+    twitterUrl: '',
+    youtubeUrl: '',
+    tiktokUrl: ''
   });
 
   useEffect(() => {
@@ -39,7 +44,12 @@ export default function Settings() {
             subscriptionModalDelaySeconds: data.subscriptionModalDelaySeconds ?? 5,
             subscriptionModalTitle: data.subscriptionModalTitle || '',
             subscriptionModalDescription: data.subscriptionModalDescription || '',
-            subscriptionModalTriggerType: data.subscriptionModalTriggerType || 'session'
+            subscriptionModalTriggerType: data.subscriptionModalTriggerType || 'session',
+            facebookUrl: data.facebookUrl || '',
+            instagramUrl: data.instagramUrl || '',
+            twitterUrl: data.twitterUrl || '',
+            youtubeUrl: data.youtubeUrl || '',
+            tiktokUrl: data.tiktokUrl || ''
           });
         }
       } catch (error) {
@@ -321,6 +331,95 @@ export default function Settings() {
                     </p>
                   </motion.div>
                 )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Redes Sociales Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
+                    <Globe className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-900">Redes Sociales</CardTitle>
+                    <CardDescription className="text-xs font-medium text-slate-400">Configura los enlaces a tus perfiles oficiales.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Facebook</label>
+                    <div className="relative">
+                      <Facebook className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        value={settings.facebookUrl || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, facebookUrl: e.target.value }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs transition-colors"
+                        placeholder="https://facebook.com/tucanal"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Instagram</label>
+                    <div className="relative">
+                      <Instagram className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        value={settings.instagramUrl || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, instagramUrl: e.target.value }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs transition-colors"
+                        placeholder="https://instagram.com/tuperfil"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Twitter / X</label>
+                    <div className="relative">
+                      <Twitter className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        value={settings.twitterUrl || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, twitterUrl: e.target.value }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs transition-colors"
+                        placeholder="https://twitter.com/tuusuario"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">YouTube</label>
+                    <div className="relative">
+                      <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        value={settings.youtubeUrl || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, youtubeUrl: e.target.value }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs transition-colors"
+                        placeholder="https://youtube.com/c/tucanal"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">TikTok</label>
+                    <div className="relative">
+                      <Video className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                      <Input 
+                        value={settings.tiktokUrl || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, tiktokUrl: e.target.value }))}
+                        className="h-14 pl-12 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs transition-colors"
+                        placeholder="https://tiktok.com/@tuusuario"
+                      />
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </motion.div>

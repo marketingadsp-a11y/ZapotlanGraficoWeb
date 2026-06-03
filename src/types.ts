@@ -47,6 +47,11 @@ export interface SiteSettings {
   subscriptionModalTitle?: string;
   subscriptionModalDescription?: string;
   subscriptionModalTriggerType?: 'session' | 'timer' | 'always';
+  facebookUrl?: string;
+  instagramUrl?: string;
+  twitterUrl?: string;
+  youtubeUrl?: string;
+  tiktokUrl?: string;
 }
 
 export interface Subscriber {

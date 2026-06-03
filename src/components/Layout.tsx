@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe } from 'lucide-react';
+import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe, Youtube, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { format } from 'date-fns';
@@ -123,11 +123,41 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                     </nav>
                     <div className="p-8 bg-slate-50 mt-auto">
                       <div className="flex gap-4 justify-center">
-                        {[Facebook, Twitter, Instagram].map((Icon, i) => (
-                          <Button key={i} variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
-                            <Icon className="h-5 w-5" />
-                          </Button>
-                        ))}
+                        {settings.facebookUrl && (
+                          <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                              <Facebook className="h-5 w-5" />
+                            </Button>
+                          </a>
+                        )}
+                        {settings.instagramUrl && (
+                          <a href={settings.instagramUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                              <Instagram className="h-5 w-5" />
+                            </Button>
+                          </a>
+                        )}
+                        {settings.twitterUrl && (
+                          <a href={settings.twitterUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                              <Twitter className="h-5 w-5" />
+                            </Button>
+                          </a>
+                        )}
+                        {settings.youtubeUrl && (
+                          <a href={settings.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                              <Youtube className="h-5 w-5" />
+                            </Button>
+                          </a>
+                        )}
+                        {settings.tiktokUrl && (
+                          <a href={settings.tiktokUrl} target="_blank" rel="noopener noreferrer">
+                            <Button variant="ghost" size="icon" className="rounded-full bg-white shadow-sm hover:text-brand-blue">
+                              <Video className="h-5 w-5" />
+                            </Button>
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -198,10 +228,45 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 <Search className="h-5 w-5" />
               </Button>
               <div className="hidden sm:block h-8 w-px bg-slate-200 mx-1" />
-              <Button variant="ghost" size="icon" className="rounded-2xl hover:bg-slate-100 text-slate-500 relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-brand-red border-2 border-white" />
-              </Button>
+              
+              {/* Dynamic Social Icons */}
+              <div className="flex items-center gap-1">
+                {settings.facebookUrl && (
+                  <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-brand-blue/10 hover:text-brand-blue text-slate-400">
+                      <Facebook className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+                {settings.instagramUrl && (
+                  <a href={settings.instagramUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-brand-blue/10 hover:text-brand-blue text-slate-400">
+                      <Instagram className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+                {settings.twitterUrl && (
+                  <a href={settings.twitterUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-brand-blue/10 hover:text-brand-blue text-slate-400">
+                      <Twitter className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+                {settings.youtubeUrl && (
+                  <a href={settings.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-brand-blue/10 hover:text-brand-blue text-slate-400">
+                      <Youtube className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+                {settings.tiktokUrl && (
+                  <a href={settings.tiktokUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-brand-blue/10 hover:text-brand-blue text-slate-400">
+                      <Video className="h-4 w-4" />
+                    </Button>
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -238,11 +303,44 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 Comprometidos con la verdad y la información veraz en la región sur de Jalisco. Tu voz local, ahora digital.
               </p>
               <div className="flex gap-4">
-                {[Facebook, Twitter, Instagram].map((Icon, i) => (
-                  <Button key={i} variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-[#00AEEF] hover:border-[#00AEEF] transition-all">
-                    <Icon className="h-5 w-5" />
-                  </Button>
-                ))}
+                {settings.facebookUrl && (
+                  <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-brand-blue hover:border-brand-blue transition-all">
+                      <Facebook className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {settings.instagramUrl && (
+                  <a href={settings.instagramUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-brand-blue hover:border-brand-blue transition-all">
+                      <Instagram className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {settings.twitterUrl && (
+                  <a href={settings.twitterUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-brand-blue hover:border-brand-blue transition-all">
+                      <Twitter className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {settings.youtubeUrl && (
+                  <a href={settings.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-brand-blue hover:border-brand-blue transition-all">
+                      <Youtube className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {settings.tiktokUrl && (
+                  <a href={settings.tiktokUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="icon" className="rounded-full border-slate-800 bg-slate-800/50 hover:bg-brand-blue hover:border-brand-blue transition-all">
+                      <Video className="h-5 w-5" />
+                    </Button>
+                  </a>
+                )}
+                {!settings.facebookUrl && !settings.twitterUrl && !settings.instagramUrl && !settings.youtubeUrl && !settings.tiktokUrl && (
+                  <p className="text-slate-500 text-xs font-medium">No hay redes configuradas.</p>
+                )}
               </div>
             </div>
 
