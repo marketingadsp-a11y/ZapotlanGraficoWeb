@@ -131,35 +131,29 @@ export default function CategoryPage() {
       setYtError(null);
       try {
         const response = await fetch(`/api/youtube-channel-videos?url=${encodeURIComponent(settings.youtubeUrl || '')}`);
-        const contentType = response.headers.get("content-type") || "";
+        const rawText = await response.text();
         
+        let data: any = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseErr) {
+          console.error("Failed to parse YouTube API response as JSON:", rawText);
+          throw new Error(`Respuesta inválida del servidor (formato no soportado). Contenido: ${rawText.slice(0, 150)}`);
+        }
+
         if (!response.ok) {
           let errorMsg = "El portal no pudo sincronizar los videos en este momento.";
-          if (contentType.includes("application/json")) {
-            try {
-              const errData = await response.json();
-              if (errData && errData.error) {
-                errorMsg = errData.error === "Could not find a YouTube Channel ID for the provided URL."
-                  ? "No se pudo encontrar el identificador del canal de YouTube. Revisa que el enlace sea correcto."
-                  : errData.error;
-                if (errData.details) {
-                  errorMsg += ` (${errData.details})`;
-                }
-              }
-            } catch (e) {
-              // Ignore decoding error
+          if (data && data.error) {
+            errorMsg = data.error === "Could not find a YouTube Channel ID for the provided URL."
+              ? "No se pudo encontrar el identificador del canal de YouTube. Revisa que el enlace sea correcto."
+              : data.error;
+            if (data.details) {
+              errorMsg += ` (${data.details})`;
             }
-          } else {
-            console.error("Non-JSON error response from API:", await response.text());
           }
           throw new Error(errorMsg);
         }
-
-        if (!contentType.includes("application/json")) {
-          throw new Error("Respuesta inválida del servidor (formato no soportado).");
-        }
         
-        const data = await response.json();
         if (data.error) {
           throw new Error(data.error);
         }
