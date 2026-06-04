@@ -194,7 +194,7 @@ export default function Home() {
             ))}
           </div>
         </section>
-        {/* Newsletter / CTA */}
+        {/* Newsletter / CTA - Suscriptores */}
         <section className="relative overflow-hidden rounded-[3rem] bg-[#00AEEF] p-8 lg:p-16 text-white">
           <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-64 w-64 rounded-full bg-[#FFF200]/20 blur-3xl" />
           <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-64 w-64 rounded-full bg-[#ED1C24]/20 blur-3xl" />
@@ -202,10 +202,10 @@ export default function Home() {
           <div className="relative grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <h2 className="text-4xl lg:text-6xl font-black leading-none tracking-tighter">
-                MANTENTE <br /> <span className="text-[#FFF200]">INFORMADO</span>
+                ÚNETE A NUESTROS <br /> <span className="text-[#FFF200]">SUSCRIPTORES</span>
               </h2>
               <p className="text-lg font-medium opacity-80 max-w-md">
-                Recibe las noticias más importantes de Zapotlán el Grande directamente en tu correo.
+                Apoya al periodismo independiente de Zapotlán el Grande, recibe ediciones especiales y mantente conectado con la comunidad.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
