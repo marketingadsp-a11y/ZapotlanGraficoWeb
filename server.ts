@@ -199,43 +199,52 @@ async function startServer() {
 
       // 1. Resolve channel ID
       let channelId: string | null = null;
-      const channelIdMatch = targetUrl.match(/(?:channel\/|UC)([a-zA-Z0-9_-]{22})/);
-      
-      if (channelIdMatch) {
-        channelId = 'UC' + channelIdMatch[1];
-      } else {
-        // Scrape YT channel page to extract channel ID or direct RSS feed
-        const scrapeRes = await axios.get(encodeURI(targetUrl), {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-          },
-          timeout: 8000
-        });
 
-        const $ = cheerio.load(scrapeRes.data);
+      // Leverage instant lookups for matching Zapotlán handles to bypass YouTube external bot blocking
+      const normalizedLower = targetUrl.toLowerCase();
+      if (normalizedLower.includes("zapotlan") || normalizedLower.includes("zapotlán")) {
+        channelId = "UC6xwxt0tXYDUs3WTClcQO3w";
+      }
+
+      if (!channelId) {
+        const channelIdMatch = targetUrl.match(/(?:channel\/|UC)([a-zA-Z0-9_-]{22})/);
         
-        // Try application/rss+xml link
-        const rssHref = $('link[type="application/rss+xml"]').attr('href');
-        if (rssHref) {
-          const idMatch = rssHref.match(/channel_id=([^&]+)/);
-          if (idMatch) channelId = idMatch[1];
-        }
+        if (channelIdMatch) {
+          channelId = 'UC' + channelIdMatch[1];
+        } else {
+          // Scrape YT channel page to extract channel ID or direct RSS feed
+          const scrapeRes = await axios.get(encodeURI(targetUrl), {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36',
+              'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+            },
+            timeout: 8000
+          });
 
-        // Try itemprop meta tag
-        if (!channelId) {
-          channelId = $('meta[itemprop="channelId"]').attr('content') || null;
-        }
+          const $ = cheerio.load(scrapeRes.data);
+          
+          // Try application/rss+xml link
+          const rssHref = $('link[type="application/rss+xml"]').attr('href');
+          if (rssHref) {
+            const idMatch = rssHref.match(/channel_id=([^&]+)/);
+            if (idMatch) channelId = idMatch[1];
+          }
 
-        // Try body text search for patterns
-        if (!channelId) {
-          const bodyText = scrapeRes.data;
-          const metaMatch = bodyText.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
-          if (metaMatch) {
-            channelId = metaMatch[1];
-          } else {
-            const rUrlMatch = bodyText.match(/https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})/);
-            if (rUrlMatch) channelId = rUrlMatch[1];
+          // Try itemprop meta tag
+          if (!channelId) {
+            channelId = $('meta[itemprop="channelId"]').attr('content') || null;
+          }
+
+          // Try body text search for patterns
+          if (!channelId) {
+            const bodyText = scrapeRes.data;
+            const metaMatch = bodyText.match(/"channelId":"(UC[a-zA-Z0-9_-]{22})"/);
+            if (metaMatch) {
+              channelId = metaMatch[1];
+            } else {
+              const rUrlMatch = bodyText.match(/https:\/\/www\.youtube\.com\/channel\/(UC[a-zA-Z0-9_-]{22})/);
+              if (rUrlMatch) channelId = rUrlMatch[1];
+            }
           }
         }
       }

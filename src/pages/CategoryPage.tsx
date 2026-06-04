@@ -131,13 +131,32 @@ export default function CategoryPage() {
       setYtError(null);
       try {
         const response = await fetch(`/api/youtube-channel-videos?url=${encodeURIComponent(settings.youtubeUrl || '')}`);
-        
-        // Handle non-JSON and error response status cleanly
         const contentType = response.headers.get("content-type") || "";
-        if (!response.ok || !contentType.includes("application/json")) {
-          const rawText = await response.text();
-          console.error("Non-JSON or error response:", rawText);
-          throw new Error("El portal no pudo sincronizar los videos en este momento. Revisa que el enlace del canal en Ajustes sea válido o intenta de nuevo más tarde.");
+        
+        if (!response.ok) {
+          let errorMsg = "El portal no pudo sincronizar los videos en este momento.";
+          if (contentType.includes("application/json")) {
+            try {
+              const errData = await response.json();
+              if (errData && errData.error) {
+                errorMsg = errData.error === "Could not find a YouTube Channel ID for the provided URL."
+                  ? "No se pudo encontrar el identificador del canal de YouTube. Revisa que el enlace sea correcto."
+                  : errData.error;
+                if (errData.details) {
+                  errorMsg += ` (${errData.details})`;
+                }
+              }
+            } catch (e) {
+              // Ignore decoding error
+            }
+          } else {
+            console.error("Non-JSON error response from API:", await response.text());
+          }
+          throw new Error(errorMsg);
+        }
+
+        if (!contentType.includes("application/json")) {
+          throw new Error("Respuesta inválida del servidor (formato no soportado).");
         }
         
         const data = await response.json();
