@@ -17,14 +17,6 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
-            <Newspaper className="h-5 w-5" />
-          </div>
-          <h2 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Secciones</h2>
-        </div>
-      </div>
 
       {currentCategory ? (
         // Special 2-icon view when browsing a category

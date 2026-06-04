@@ -60,11 +60,48 @@ export default function FlipbookViewer() {
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Touch gesture states for mobile pinch-to-zoom
+  const [initialTouchDistance, setInitialTouchDistance] = useState<number | null>(null);
+  const [initialZoomLevel, setInitialZoomLevel] = useState<number>(1);
+
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.25, 1));
   const handleResetZoom = () => {
     setZoomLevel(1);
     setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[1];
+      const touch0 = e.touches[0];
+      const distance = Math.hypot(
+        touch0.clientX - touch1.clientX,
+        touch0.clientY - touch1.clientY
+      );
+      setInitialTouchDistance(distance);
+      setInitialZoomLevel(zoomLevel);
+      setIsPanning(false); // Disable standard layout dragging to prioritize zoom pinch
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && initialTouchDistance !== null) {
+      const touch1 = e.touches[1];
+      const touch0 = e.touches[0];
+      const distance = Math.hypot(
+        touch0.clientX - touch1.clientX,
+        touch0.clientY - touch1.clientY
+      );
+      
+      const factor = distance / initialTouchDistance;
+      const newZoom = Math.max(1, Math.min(initialZoomLevel * factor, 3));
+      setZoomLevel(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setInitialTouchDistance(null);
   };
 
   // Reset zoom level and panning offset on page turn
@@ -83,6 +120,8 @@ export default function FlipbookViewer() {
   // Drag & pan gestures handler for mobile touch/mouse
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (zoomLevel <= 1) return;
+    // Multi-touch gestures (pinch zoom) should skip pointer panning to prevent conflict
+    if (e.pointerType === 'touch' && !e.isPrimary) return;
     setIsPanning(true);
     setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -443,10 +482,14 @@ export default function FlipbookViewer() {
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
                 style={{ 
                   transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0px) scale(${zoomLevel})`,
                   transformOrigin: 'center center',
-                  touchAction: zoomLevel > 1 ? 'none' : 'auto',
+                  touchAction: 'none',
                   cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default',
                 }}
                 className="w-full h-full flex items-center justify-center transition-transform duration-100 ease-out select-none"

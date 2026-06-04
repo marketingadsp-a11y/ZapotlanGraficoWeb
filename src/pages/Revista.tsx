@@ -73,35 +73,32 @@ export default function Revista() {
         <PromoAd type="horizontal" className="my-2" />
         
         {/* Editorial Brand Intro Hero */}
-        <div className="relative overflow-hidden rounded-[3.5rem] bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-12 lg:p-20 text-white shadow-2xl">
-          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-80 w-80 rounded-full bg-[#00AEEF]/10 blur-3xl" />
-          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-80 w-80 rounded-full bg-[#ED1C24]/10 blur-3xl" />
+        <div id="revista-hero" className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-8 lg:p-12 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-64 w-64 rounded-full bg-[#00AEEF]/10 blur-3xl" />
+          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-64 w-64 rounded-full bg-[#ED1C24]/10 blur-3xl" />
           
-          <div className="relative grid lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-8 space-y-6">
+          <div className="relative grid lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-8 space-y-4">
               <div className="flex items-center gap-3">
-                <span className="h-2 w-10 bg-[#ED1C24] rounded-full" />
-                <p className="text-xs font-black uppercase tracking-[0.35em] text-[#FFF200] flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" />
+                <span className="h-1.5 w-8 bg-[#ED1C24] rounded-full" />
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#FFF200] flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3" />
                   Hemeroteca & Ediciones Digitales
                 </p>
               </div>
-              <h1 className="text-5xl lg:text-8xl font-black tracking-tighter uppercase leading-none">
+              <h1 className="text-4xl lg:text-6xl font-black tracking-tighter uppercase leading-none">
                 La Revista <br /> <span className="text-[#00AEEF]">Zapotlán Gráfico</span>
               </h1>
-              <p className="text-slate-400 font-medium text-sm lg:text-base leading-relaxed max-w-xl">
-                Lee nuestras ediciones impresas mensuales, reportajes especiales, catálogos del comercio local y suplementos culturales de forma totalmente interactiva con nuestra experiencia Flipbook de pase de página físico.
-              </p>
             </div>
             
             <div className="hidden lg:flex lg:col-span-4 items-center justify-center">
               <motion.div
-                initial={{ rotate: -5, y: 15 }}
-                animate={{ rotate: 3, y: -5 }}
+                initial={{ rotate: -5, y: 10 }}
+                animate={{ rotate: 3, y: -3 }}
                 transition={{ repeat: Infinity, repeatType: "reverse", duration: 4, ease: "easeInOut" }}
-                className="relative bg-white/5 border border-white/10 rounded-[2.5rem] p-6 backdrop-blur-md shadow-2xl"
+                className="relative bg-white/5 border border-white/10 rounded-[2rem] p-4 backdrop-blur-md shadow-2xl"
               >
-                <div className="aspect-[3/4] w-52 bg-slate-800 rounded-3xl overflow-hidden shadow-inner border border-white/5 relative">
+                <div className="aspect-[3/4] w-40 bg-slate-800 rounded-2xl overflow-hidden shadow-inner border border-white/5 relative">
                   {flipbooks[0]?.coverUrl ? (
                     <img 
                       src={flipbooks[0].coverUrl} 
@@ -111,10 +108,10 @@ export default function Revista() {
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-slate-500">
-                      <BookOpen className="h-10 w-10" />
+                      <BookOpen className="h-8 w-8" />
                     </div>
                   )}
-                  <div className="absolute bottom-3 left-3 bg-slate-900/90 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-white/10">
+                  <div className="absolute bottom-2.5 left-2.5 bg-slate-900/90 text-white text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-white/10">
                     Última Edición
                   </div>
                 </div>
