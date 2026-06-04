@@ -25,6 +25,7 @@ import Settings from '@/pages/admin/Settings';
 import Subscribers from '@/pages/admin/Subscribers';
 import FlipbookList from '@/pages/admin/FlipbookList';
 import FlipbookMaker from '@/pages/admin/FlipbookMaker';
+import Publicidad from '@/pages/admin/Publicidad';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAuth();
@@ -61,6 +62,7 @@ export default function App() {
                     <Route path="importar" element={<FBImporter />} />
                     <Route path="reporte" element={<WeeklyReport />} />
                     <Route path="ajustes" element={<Settings />} />
+                    <Route path="publicidad" element={<Publicidad />} />
                     <Route path="suscriptores" element={<Subscribers />} />
                     <Route path="flipbooks" element={<FlipbookList />} />
                     <Route path="flipbooks/nuevo" element={<FlipbookMaker />} />

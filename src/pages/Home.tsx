@@ -14,6 +14,7 @@ import { Play, TrendingUp, Clock, ChevronRight, Newspaper } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
 
 export default function Home() {
   const { settings } = useSettings();
@@ -126,6 +127,9 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        {/* Banner de Publicidad Interna */}
+        <PromoAd type="horizontal" className="my-2" />
 
         {/* Latest News Grid */}
         <section className="space-y-8">

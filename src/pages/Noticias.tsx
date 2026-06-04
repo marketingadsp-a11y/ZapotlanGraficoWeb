@@ -14,6 +14,7 @@ import { Search, Play, Calendar, User, Hash, Grid, Filter } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
 
 export default function Noticias() {
   const { settings } = useSettings();
@@ -210,6 +211,9 @@ export default function Noticias() {
             </div>
           )}
         </div>
+
+        {/* Banner de Publicidad Interna */}
+        <PromoAd type="horizontal" className="my-2" />
 
         {/* Loading / Results Frame */}
         {loading ? (

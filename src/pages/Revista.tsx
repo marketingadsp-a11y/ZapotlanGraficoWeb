@@ -25,6 +25,7 @@ interface Flipbook {
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
 
 export default function Revista() {
   const [flipbooks, setFlipbooks] = useState<any[]>(dataCache.flipbooks);
@@ -67,6 +68,9 @@ export default function Revista() {
       <div className="container mx-auto px-4 py-8 space-y-16">
         {/* Secciones Grid */}
         <Secciones />
+
+        {/* Banner de Publicidad Interna */}
+        <PromoAd type="horizontal" className="my-2" />
         
         {/* Editorial Brand Intro Hero */}
         <div className="relative overflow-hidden rounded-[3.5rem] bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 p-12 lg:p-20 text-white shadow-2xl">

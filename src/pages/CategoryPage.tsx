@@ -14,6 +14,7 @@ import { Play, Calendar, User, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
 
 export default function CategoryPage() {
   const { settings } = useSettings();
@@ -170,6 +171,9 @@ export default function CategoryPage() {
             })}
           </div>
         )}
+
+        {/* Banner de Publicidad Interna */}
+        <PromoAd type="horizontal" className="my-2" />
 
         {loading ? (
           <div className="flex h-64 items-center justify-center">

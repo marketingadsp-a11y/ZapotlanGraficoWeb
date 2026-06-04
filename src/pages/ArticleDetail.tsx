@@ -16,6 +16,7 @@ import { getSafeImageUrl, cn } from '@/lib/utils';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
 
 export default function ArticleDetail() {
   const { settings } = useSettings();
@@ -232,7 +233,7 @@ export default function ArticleDetail() {
           </div>
 
           {/* Content Body */}
-          <div className="grid gap-12 lg:grid-cols-[1fr_100px]">
+          <div className="grid gap-12 lg:grid-cols-[1fr_240px]">
             <div className="prose prose-slate prose-lg max-w-none 
               prose-headings:font-black prose-headings:tracking-tighter prose-headings:uppercase
               prose-p:leading-relaxed prose-p:text-slate-600 prose-p:font-medium
@@ -240,6 +241,9 @@ export default function ArticleDetail() {
               prose-a:text-[#00AEEF] prose-a:no-underline hover:prose-a:underline
               prose-img:rounded-3xl prose-img:shadow-xl">
               <ReactMarkdown>{article.content}</ReactMarkdown>
+
+              {/* Banner de Publicidad Interna en la nota */}
+              <PromoAd type="horizontal" className="my-8" />
 
               {article.tags && article.tags.length > 0 && (
                 <div className="mt-12 flex flex-wrap gap-2.5 pt-6 border-t border-slate-100">
@@ -258,6 +262,7 @@ export default function ArticleDetail() {
             {/* Sticky Sidebar Actions */}
             <aside className="hidden lg:block">
               <div className="sticky top-32 space-y-6">
+                <PromoAd type="square" className="w-full" />
                 <div className="flex flex-col gap-3">
                   <Button 
                     variant="outline" 

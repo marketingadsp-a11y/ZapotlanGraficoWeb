@@ -70,3 +70,18 @@ export interface Category {
   subcategories?: string[];
   createdAt?: Timestamp;
 }
+
+export interface Ad {
+  id: string;
+  title: string;
+  imageUrl: string;
+  linkUrl: string;
+  type: 'horizontal' | 'square';
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  isActive: boolean;
+  isArchived: boolean;
+  clicks: number;
+  createdAt: Timestamp;
+}
+
