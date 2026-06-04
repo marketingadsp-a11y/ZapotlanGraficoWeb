@@ -211,6 +211,31 @@ export default function FlipbookViewer() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPage, flipbook, isFullscreen, isMobile]);
 
+  // Synchronize fullscreen state with browser native events (e.g. exit fullscreen manually)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const doc = document as any;
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.msFullscreenElement
+      );
+      if (!isCurrentlyFullscreen && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen]);
+
   // Autoplay Slideshow loop timer
   useEffect(() => {
     if (!isAutoPlayEnabled || !flipbook) return;
@@ -277,13 +302,42 @@ export default function FlipbookViewer() {
 
   // Keyboard and dynamic full screen handler
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((err) => {
-        console.error(`Error enabling fullscreen: ${err.message}`);
-      });
+    const docEl = document.documentElement as any;
+    const doc = document as any;
+
+    if (!isFullscreen) {
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch((err: any) => {
+          console.warn(`HTML5 Fullscreen standard request failed, using CSS fallback: ${err.message}`);
+        });
+      } else if (docEl.webkitRequestFullscreen) {
+        try {
+          docEl.webkitRequestFullscreen();
+        } catch (err) {
+          console.warn("WebKit requestFullscreen failed:", err);
+        }
+      } else if (docEl.msRequestFullscreen) {
+        try {
+          docEl.msRequestFullscreen();
+        } catch (err) {
+          console.warn("MS requestFullscreen failed:", err);
+        }
+      }
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen();
+      if (document.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement) {
+        if (doc.exitFullscreen) {
+          doc.exitFullscreen().catch(() => {});
+        } else if (doc.webkitExitFullscreen) {
+          try {
+            doc.webkitExitFullscreen();
+          } catch (err) {}
+        } else if (doc.msExitFullscreen) {
+          try {
+            doc.msExitFullscreen();
+          } catch (err) {}
+        }
+      }
       setIsFullscreen(false);
     }
   };
