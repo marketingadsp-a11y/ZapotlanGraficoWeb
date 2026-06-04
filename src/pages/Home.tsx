@@ -13,7 +13,7 @@ import { getSafeImageUrl } from '@/lib/utils';
 import { Play, TrendingUp, Clock, ChevronRight, Newspaper } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
-import { CATEGORY_ICONS } from '@/lib/constants';
+import Secciones from '@/components/Secciones';
 
 export default function Home() {
   const { settings } = useSettings();
@@ -56,44 +56,7 @@ export default function Home() {
     <PublicLayout>
       <div className="container mx-auto px-4 py-8 space-y-16">
         {/* Secciones Grid */}
-        {settings.featuredCategories && settings.featuredCategories.length > 0 && (
-          <section className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
-                  <Newspaper className="h-5 w-5" />
-                </div>
-                <h2 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Secciones</h2>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-              {settings.featuredCategories.map((category) => {
-                const Icon = CATEGORY_ICONS[category] || Newspaper;
-                return (
-                  <motion.div
-                    key={category}
-                    initial={{ opacity: 0, y: 15 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    whileHover={{ scale: 1.05 }}
-                    className="group"
-                  >
-                    <Link to={`/categoria/${category}`} className="flex flex-col items-center gap-2">
-                      <div className="h-16 w-16 md:h-18 md:w-18 rounded-[2rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 group-hover:text-[#00AEEF] group-hover:border-[#00AEEF] group-hover:shadow-xl group-hover:shadow-[#00AEEF]/10 transition-all duration-300">
-                        <Icon className="h-7 w-7 md:h-8 md:w-8" />
-                      </div>
-                      <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[#00AEEF] group-hover:text-slate-950 text-center px-1">
-                        {category}
-                      </span>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-            </div>
-            <div className="border-b border-slate-100 pt-4" />
-          </section>
-        )}
+        <Secciones />
 
         {/* Hero Section */}
         <section className="grid gap-6 lg:grid-cols-12">

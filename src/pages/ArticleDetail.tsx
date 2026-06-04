@@ -15,6 +15,7 @@ import { motion } from 'motion/react';
 import { getSafeImageUrl, cn } from '@/lib/utils';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
+import Secciones from '@/components/Secciones';
 
 export default function ArticleDetail() {
   const { settings } = useSettings();
@@ -147,7 +148,12 @@ export default function ArticleDetail() {
 
   return (
     <PublicLayout>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* Secciones Bar */}
+        <div className="mx-auto max-w-4xl">
+          <Secciones currentCategory={article.categories?.[0] || 'General'} />
+        </div>
+
         <motion.article 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

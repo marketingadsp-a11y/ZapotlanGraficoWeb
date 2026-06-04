@@ -13,6 +13,7 @@ import { getSafeImageUrl, cn } from '@/lib/utils';
 import { Play, Calendar, User, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
+import Secciones from '@/components/Secciones';
 
 export default function CategoryPage() {
   const { settings } = useSettings();
@@ -122,20 +123,23 @@ export default function CategoryPage() {
 
   return (
     <PublicLayout>
-      <div className="container mx-auto px-4 py-12 space-y-12">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        {/* Secciones Bar */}
+        <Secciones currentCategory={category} />
+
         {/* Header */}
-        <div className="relative overflow-hidden rounded-[3rem] bg-slate-900 p-12 lg:p-20 text-white">
-          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-64 w-64 rounded-full bg-[#00AEEF]/20 blur-3xl" />
-          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-64 w-64 rounded-full bg-[#ED1C24]/20 blur-3xl" />
+        <div className="relative overflow-hidden rounded-[2rem] bg-slate-900 p-6 lg:p-10 text-white shadow-lg">
+          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-44 w-44 rounded-full bg-[#00AEEF]/25 blur-2xl" />
+          <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 h-44 w-44 rounded-full bg-[#ED1C24]/20 blur-2xl" />
           
-          <div className="relative space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-1 w-8 bg-[#FFF200] rounded-full" />
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-[#FFF200]">Explorar Categoría</p>
+          <div className="relative space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-0.5 w-6 bg-[#FFF200] rounded-full" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFF200]">Sección</p>
             </div>
-            <h1 className="text-5xl lg:text-8xl font-black tracking-tighter uppercase">{category}</h1>
-            <p className="text-slate-400 font-medium max-w-xl">
-              Mantente al día con las últimas noticias y reportajes exclusivos de la sección de {category} en la región.
+            <h1 className="text-3xl lg:text-5xl font-black tracking-tighter uppercase">{category}</h1>
+            <p className="text-xs text-slate-400 font-medium max-w-xl">
+              Últimas noticias y reportajes exclusivos de la sección de {category} en la región.
             </p>
           </div>
         </div>

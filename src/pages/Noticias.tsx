@@ -13,6 +13,7 @@ import { getSafeImageUrl } from '@/lib/utils';
 import { Search, Play, Calendar, User, Hash, Grid, Filter } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
+import Secciones from '@/components/Secciones';
 
 export default function Noticias() {
   const { settings } = useSettings();
@@ -93,7 +94,9 @@ export default function Noticias() {
 
   return (
     <PublicLayout>
-      <div className="container mx-auto px-4 py-12 space-y-12">
+      <div className="container mx-auto px-4 py-8 space-y-12">
+        {/* Secciones Grid */}
+        <Secciones />
         
         {/* Modern Header Section */}
         <div className="relative overflow-hidden rounded-[3.5rem] bg-slate-900 p-12 lg:p-20 text-white shadow-xl shadow-slate-950/10">
