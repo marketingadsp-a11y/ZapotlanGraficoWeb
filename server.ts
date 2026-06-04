@@ -177,15 +177,20 @@ async function startServer() {
     }
 
     try {
+      let targetUrl = url.trim();
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = 'https://' + targetUrl;
+      }
+
       // 1. Resolve channel ID
       let channelId: string | null = null;
-      const channelIdMatch = url.match(/(?:channel\/|UC)([a-zA-Z0-9_-]{22})/);
+      const channelIdMatch = targetUrl.match(/(?:channel\/|UC)([a-zA-Z0-9_-]{22})/);
       
       if (channelIdMatch) {
         channelId = 'UC' + channelIdMatch[1];
       } else {
         // Scrape YT channel page to extract channel ID or direct RSS feed
-        const scrapeRes = await axios.get(url, {
+        const scrapeRes = await axios.get(encodeURI(targetUrl), {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36',
             'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
@@ -226,7 +231,7 @@ async function startServer() {
 
       // 2. Fetch the XML RSS feed
       const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-      const feedRes = await axios.get(feedUrl, { timeout: 6000 });
+      const feedRes = await axios.get(encodeURI(feedUrl), { timeout: 6000 });
       const $feed = cheerio.load(feedRes.data, { xmlMode: true });
 
       const videos: any[] = [];
