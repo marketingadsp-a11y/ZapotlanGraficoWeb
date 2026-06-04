@@ -131,6 +131,15 @@ export default function CategoryPage() {
       setYtError(null);
       try {
         const response = await fetch(`/api/youtube-channel-videos?url=${encodeURIComponent(settings.youtubeUrl || '')}`);
+        
+        // Handle non-JSON and error response status cleanly
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok || !contentType.includes("application/json")) {
+          const rawText = await response.text();
+          console.error("Non-JSON or error response:", rawText);
+          throw new Error("El portal no pudo sincronizar los videos en este momento. Revisa que el enlace del canal en Ajustes sea válido o intenta de nuevo más tarde.");
+        }
+        
         const data = await response.json();
         if (data.error) {
           throw new Error(data.error);

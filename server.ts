@@ -177,8 +177,23 @@ async function startServer() {
     }
 
     try {
-      let targetUrl = url.trim();
-      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      let rawUrl = url.trim();
+      
+      // Decode first to prevent potential double encodings (e.g., %C3%A1 -> á)
+      try {
+        rawUrl = decodeURIComponent(rawUrl);
+      } catch (e) {
+        // Fallback if decoding fails
+      }
+
+      let targetUrl = rawUrl;
+      
+      // Support patterns like: "@ZapotlanGraficoMX", "ZapotlanGraficoMX", and full custom URLs
+      if (targetUrl.startsWith('@')) {
+        targetUrl = 'https://www.youtube.com/' + targetUrl;
+      } else if (!targetUrl.toLowerCase().includes('youtube.com') && !targetUrl.toLowerCase().includes('youtu.be')) {
+        targetUrl = 'https://www.youtube.com/@' + targetUrl;
+      } else if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = 'https://' + targetUrl;
       }
 
