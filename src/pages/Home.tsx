@@ -10,9 +10,10 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { getSafeImageUrl } from '@/lib/utils';
-import { Play, TrendingUp, Clock, ChevronRight } from 'lucide-react';
+import { Play, TrendingUp, Clock, ChevronRight, Newspaper } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
+import { CATEGORY_ICONS } from '@/lib/constants';
 
 export default function Home() {
   const { settings } = useSettings();
@@ -186,6 +187,45 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        {/* Secciones Grid */}
+        {settings.featuredCategories && settings.featuredCategories.length > 0 && (
+          <section className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-[#00AEEF]/10 flex items-center justify-center text-[#00AEEF]">
+                  <Newspaper className="h-5 w-5" />
+                </div>
+                <h2 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Secciones</h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
+              {settings.featuredCategories.map((category) => {
+                const Icon = CATEGORY_ICONS[category] || Newspaper;
+                return (
+                  <motion.div
+                    key={category}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    whileHover={{ scale: 1.05 }}
+                    className="group"
+                  >
+                    <Link to={`/categoria/${category}`} className="flex flex-col items-center gap-3">
+                      <div className="h-16 w-16 md:h-20 md:w-20 rounded-[2rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 group-hover:text-[#00AEEF] group-hover:border-[#00AEEF] group-hover:shadow-xl group-hover:shadow-[#00AEEF]/10 transition-all duration-300">
+                        <Icon className="h-7 w-7 md:h-9 md:w-9" />
+                      </div>
+                      <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-600 group-hover:text-slate-950 text-center px-1">
+                        {category}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Newsletter / CTA */}
         <section className="relative overflow-hidden rounded-[3rem] bg-[#00AEEF] p-8 lg:p-16 text-white">

@@ -25,9 +25,12 @@ export default function CategoryPage() {
   
   const [articles, setArticles] = useState<Article[]>(cachedCategoryArticles);
   const [loading, setLoading] = useState(cachedCategoryArticles.length === 0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 7;
 
   useEffect(() => {
     if (!category) return;
+    setCurrentPage(1); // Reset page on category change
     
     const q = query(
       collection(db, 'articles'),
@@ -43,6 +46,12 @@ export default function CategoryPage() {
 
     return () => unsubscribe();
   }, [category]);
+
+  const totalPages = Math.ceil(articles.length / itemsPerPage);
+  const currentArticles = articles.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <PublicLayout>
@@ -69,64 +78,113 @@ export default function CategoryPage() {
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"></div>
           </div>
         ) : (
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((article, index) => (
-              <motion.div
-                key={article.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.05 }}
-              >
-                <Link to={`/nota/${article.slug}`} className="group block space-y-5">
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-sm border border-slate-100">
-                    <img
-                      src={getSafeImageUrl(article.imageUrl)}
-                      alt={article.title}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                    {article.videoUrl && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/20">
-                        <div className="h-12 w-12 rounded-full bg-[#FFF200] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                          <Play className="h-6 w-6 text-slate-900 fill-slate-900 ml-1" />
-                        </div>
-                      </div>
-                    )}
-                    <div className="absolute top-4 left-4">
-                      <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none text-[8px] font-black uppercase tracking-widest px-3">
-                        {category}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="space-y-3 px-2">
-                    <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3 text-[#ED1C24]" />
-                        {format(article.createdAt.toDate(), "d MMM, yyyy", { locale: es })}
-                      </div>
-                      {settings.showAuthor !== false && (
-                        <>
-                          <span>•</span>
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3 w-3 text-[#00AEEF]" />
-                            {article.author}
+          <div className="space-y-12">
+            <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              {currentArticles.map((article, index) => (
+                <motion.div
+                  key={article.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.05 }}
+                >
+                  <Link to={`/nota/${article.slug}`} className="group block space-y-5">
+                    <div className="relative aspect-[16/10] overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-sm border border-slate-100">
+                      <img
+                        src={getSafeImageUrl(article.imageUrl)}
+                        alt={article.title}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                      {article.videoUrl && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/20">
+                          <div className="h-12 w-12 rounded-full bg-[#FFF200] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                            <Play className="h-6 w-6 text-slate-900 fill-slate-900 ml-1" />
                           </div>
-                        </>
+                        </div>
                       )}
+                      <div className="absolute top-4 left-4">
+                        <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none text-[8px] font-black uppercase tracking-widest px-3">
+                          {category}
+                        </Badge>
+                      </div>
                     </div>
-                    <h3 className="text-2xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2">
-                      {article.title}
-                    </h3>
-                    <p className="text-sm font-medium text-slate-500 line-clamp-2">
-                      {article.summary}
-                    </p>
-                    <div className="pt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity">
-                      Leer más <ChevronRight className="h-3 w-3" />
+                    <div className="space-y-3 px-2">
+                      <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3 text-[#ED1C24]" />
+                          {format(article.createdAt.toDate(), "d MMM, yyyy", { locale: es })}
+                        </div>
+                        {settings.showAuthor !== false && (
+                          <>
+                            <span>•</span>
+                            <div className="flex items-center gap-1.5">
+                              <User className="h-3 w-3 text-[#00AEEF]" />
+                              {article.author}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <h3 className="text-2xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2">
+                        {article.title}
+                      </h3>
+                      <p className="text-sm font-medium text-slate-500 line-clamp-2">
+                        {article.summary}
+                      </p>
+                      <div className="pt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity">
+                        Leer más <ChevronRight className="h-3 w-3" />
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4 pt-8 border-t border-slate-100">
+                <Button
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="rounded-full border-slate-200 font-black text-[10px] uppercase tracking-widest px-8"
+                >
+                  Anterior
+                </Button>
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => {
+                        setCurrentPage(page);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={cn(
+                        "h-10 w-10 rounded-full text-xs font-black transition-all",
+                        currentPage === page 
+                          ? "bg-[#00AEEF] text-white shadow-lg shadow-[#00AEEF]/20" 
+                          : "text-slate-400 hover:bg-slate-100"
+                      )}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="rounded-full border-slate-200 font-black text-[10px] uppercase tracking-widest px-8"
+                >
+                  Siguiente
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

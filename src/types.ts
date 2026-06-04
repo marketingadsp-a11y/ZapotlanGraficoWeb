@@ -52,6 +52,7 @@ export interface SiteSettings {
   twitterUrl?: string;
   youtubeUrl?: string;
   tiktokUrl?: string;
+  featuredCategories?: string[];
 }
 
 export interface Subscriber {

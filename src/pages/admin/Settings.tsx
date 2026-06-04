@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key, Bell, Clock, Facebook, Instagram, Twitter, Youtube, Video } from 'lucide-react';
+import { Save, Image as ImageIcon, Globe, Palette, ShieldCheck, User, Key, Bell, Clock, Facebook, Instagram, Twitter, Youtube, Video, Newspaper, X, Check } from 'lucide-react';
+import { DEFAULT_CATEGORIES } from '@/lib/constants';
+import { Badge } from '@/components/ui/badge';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +30,8 @@ export default function Settings() {
     instagramUrl: '',
     twitterUrl: '',
     youtubeUrl: '',
-    tiktokUrl: ''
+    tiktokUrl: '',
+    featuredCategories: []
   });
 
   useEffect(() => {
@@ -49,7 +52,8 @@ export default function Settings() {
             instagramUrl: data.instagramUrl || '',
             twitterUrl: data.twitterUrl || '',
             youtubeUrl: data.youtubeUrl || '',
-            tiktokUrl: data.tiktokUrl || ''
+            tiktokUrl: data.tiktokUrl || '',
+            featuredCategories: data.featuredCategories || []
           });
         }
       } catch (error) {
@@ -418,6 +422,89 @@ export default function Settings() {
                         placeholder="https://tiktok.com/@tuusuario"
                       />
                     </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Featured Categories Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-[#ED1C24]/10 flex items-center justify-center text-[#ED1C24]">
+                    <Newspaper className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-900">Sección de Secciones (Home)</CardTitle>
+                    <CardDescription className="text-xs font-medium text-slate-400">Selecciona hasta 15 categorías para mostrar en la cuadrícula de la página principal.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {DEFAULT_CATEGORIES.map((cat) => {
+                    const isSelected = settings.featuredCategories?.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const current = settings.featuredCategories || [];
+                          if (isSelected) {
+                            setSettings(prev => ({ 
+                              ...prev, 
+                              featuredCategories: current.filter(c => c !== cat) 
+                            }));
+                          } else if (current.length < 15) {
+                            setSettings(prev => ({ 
+                              ...prev, 
+                              featuredCategories: [...current, cat] 
+                            }));
+                          } else {
+                            toast.error('Puedes seleccionar un máximo de 15 categorías');
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center justify-between px-4 py-3 rounded-2xl border transition-all text-left",
+                          isSelected 
+                            ? "bg-[#00AEEF] border-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20" 
+                            : "bg-slate-50 border-slate-100 text-slate-600 hover:border-slate-300"
+                        )}
+                      >
+                        <span className="text-[10px] font-black uppercase tracking-widest">{cat}</span>
+                        {isSelected && <Check className="h-4 w-4" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-[2rem] border border-slate-100">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 px-2">Categorías Seleccionadas ({settings.featuredCategories?.length || 0}/15)</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {settings.featuredCategories?.map((cat) => (
+                      <Badge 
+                        key={cat} 
+                        className="bg-white border-slate-200 text-slate-900 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center gap-2 group"
+                      >
+                        {cat}
+                        <button 
+                          type="button" 
+                          onClick={() => setSettings(prev => ({ ...prev, featuredCategories: prev.featuredCategories?.filter(c => c !== cat) }))}
+                          className="text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {(!settings.featuredCategories || settings.featuredCategories.length === 0) && (
+                      <p className="text-[10px] font-medium text-slate-400 italic px-2">No has seleccionado ninguna categoría aún.</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
