@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, getDoc, setDoc, addDoc, collection, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, getDocs, collection, Timestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Article } from '@/types';
+import { Article, Category } from '@/types';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Save, ArrowLeft, Image as ImageIcon, Video, Link as LinkIcon, Type, AlignLeft, User, Hash, Upload, Loader2, Settings, Key, Globe } from 'lucide-react';
+import { Save, ArrowLeft, Image as ImageIcon, Video, Link as LinkIcon, Type, AlignLeft, User, Hash, Upload, Loader2, Settings, Key, Globe, Tags } from 'lucide-react';
 import { getSafeImageUrl, cn } from '@/lib/utils';
 import { motion } from 'motion/react';
 import { useSettings } from '@/lib/SettingsContext';
@@ -32,6 +32,7 @@ export default function ArticleEditor() {
     summary: '',
     content: '',
     categories: ['General'],
+    subcategories: [],
     tags: [],
     imageUrl: '',
     videoUrl: '',
@@ -45,6 +46,24 @@ export default function ArticleEditor() {
     ogDescription: '',
     ogImage: ''
   });
+
+  const [dbCategories, setDbCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchDbCategories = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'categories'));
+        const list: Category[] = [];
+        snap.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() } as Category);
+        });
+        setDbCategories(list);
+      } catch (error) {
+        console.error("Error loading categories:", error);
+      }
+    };
+    fetchDbCategories();
+  }, []);
 
   const handleFileUpload = async (file: File) => {
     if (!activeImgbbKey) {
@@ -112,42 +131,45 @@ export default function ArticleEditor() {
 
   useEffect(() => {
     if (id) {
-      const fetchArticle = async () => {
-        const docSnap = await getDoc(doc(db, 'articles', id));
-        if (docSnap.exists()) {
-          const data = docSnap.data() as Article;
-          setFormData({
-            ...data,
-            tags: data.tags || [],
-            videoAspectRatio: data.videoAspectRatio || 'horizontal',
-            metaDescription: data.metaDescription || '',
-            ogTitle: data.ogTitle || '',
-            ogDescription: data.ogDescription || '',
-            ogImage: data.ogImage || ''
-          });
-        }
-      };
-      fetchArticle();
+       const fetchArticle = async () => {
+         const docSnap = await getDoc(doc(db, 'articles', id));
+         if (docSnap.exists()) {
+           const data = docSnap.data() as Article;
+           setFormData({
+             ...data,
+             categories: data.categories || ['General'],
+             subcategories: data.subcategories || [],
+             tags: data.tags || [],
+             videoAspectRatio: data.videoAspectRatio || 'horizontal',
+             metaDescription: data.metaDescription || '',
+             ogTitle: data.ogTitle || '',
+             ogDescription: data.ogDescription || '',
+             ogImage: data.ogImage || ''
+           });
+         }
+       };
+       fetchArticle();
     } else {
-      // Check for imported data
-      const importedData = localStorage.getItem('fb_import_data');
-      if (importedData) {
-        const data = JSON.parse(importedData);
-        setFormData(prev => ({
-          ...prev,
-          title: data.title || '',
-          summary: data.summary || '',
-          content: data.content || '',
-          categories: data.categories || ['General'],
-          tags: data.tags || [],
-          imageUrl: data.imageUrl || '',
-          videoUrl: data.videoUrl || '',
-          videoAspectRatio: data.videoAspectRatio || 'horizontal',
-          slug: generateSlug(data.title || '')
-        }));
-        localStorage.removeItem('fb_import_data');
-        toast.info('Datos importados de Facebook cargados');
-      }
+       // Check for imported data
+       const importedData = localStorage.getItem('fb_import_data');
+       if (importedData) {
+         const data = JSON.parse(importedData);
+         setFormData(prev => ({
+           ...prev,
+           title: data.title || '',
+           summary: data.summary || '',
+           content: data.content || '',
+           categories: data.categories || ['General'],
+           subcategories: data.subcategories || [],
+           tags: data.tags || [],
+           imageUrl: data.imageUrl || '',
+           videoUrl: data.videoUrl || '',
+           videoAspectRatio: data.videoAspectRatio || 'horizontal',
+           slug: generateSlug(data.title || '')
+         }));
+         localStorage.removeItem('fb_import_data');
+         toast.info('Datos importados de Facebook cargados');
+       }
     }
   }, [id]);
 
@@ -294,18 +316,101 @@ export default function ArticleEditor() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                    <Hash className="h-3 w-3" /> Categorías
+                    <Hash className="h-3 w-3 text-[#00AEEF]" /> Categorías Principales
                   </label>
-                  <Input 
-                    value={formData.categories?.join(', ')} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, categories: e.target.value.split(',').map(c => c.trim()).filter(c => c !== '') }))}
-                    className="h-10 rounded-xl border-slate-100 bg-slate-50 text-xs font-bold"
-                    placeholder="General, Local, etc."
-                    required
-                  />
+                  <p className="text-[10px] text-slate-400 font-medium ml-1">Selecciona una o más categorías para esta nota:</p>
+                  
+                  <div className="flex flex-wrap gap-2 p-1">
+                    {(dbCategories.length > 0 ? dbCategories : [
+                      { id: 'general', name: 'General' },
+                      { id: 'local', name: 'Local' },
+                      { id: 'deportes', name: 'Deportes' },
+                      { id: 'cultura', name: 'Cultura' },
+                      { id: 'policiaca', name: 'Policiaca' }
+                    ]).map((cat) => {
+                      const isSelected = formData.categories?.includes(cat.name);
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            const current = formData.categories || [];
+                            const next = current.includes(cat.name)
+                              ? current.filter(c => c !== cat.name)
+                              : [...current, cat.name];
+                            setFormData(prev => ({ ...prev, categories: next }));
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer",
+                            isSelected
+                              ? 'bg-[#00AEEF]/15 border-[#00AEEF] text-[#00AEEF]'
+                              : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                          )}
+                        >
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Backup custom input for maximum flexibility */}
+                  <div className="pt-1">
+                    <Input 
+                      value={formData.categories?.join(', ')} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, categories: e.target.value.split(',').map(c => c.trim()).filter(c => c !== '') }))}
+                      className="h-8 rounded-lg border-slate-100 bg-slate-50 text-[10px] font-bold text-slate-400 focus:text-slate-900 focus:bg-white"
+                      placeholder="Escribe categorías personalizadas separadas por comas"
+                    />
+                  </div>
                 </div>
+
+                {/* Subcategories Selector */}
+                {dbCategories.some(cat => formData.categories?.includes(cat.name) && cat.subcategories && cat.subcategories.length > 0) && (
+                  <div className="space-y-3 pt-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#00AEEF] ml-1">
+                      <Tags className="h-3 w-3" /> Subcategorías Asociadas
+                    </label>
+                    <p className="text-[10px] text-slate-400 font-medium ml-1">Selecciona subcategorías opcionales:</p>
+                    
+                    <div className="flex flex-wrap gap-2 p-1">
+                      {dbCategories
+                        .filter(cat => formData.categories?.includes(cat.name))
+                        .flatMap(cat => (cat.subcategories || []).map(sub => ({ parent: cat.name, name: sub })))
+                        .map((subItem) => {
+                          const isSelected = formData.subcategories?.includes(subItem.name);
+                          return (
+                            <button
+                              key={`${subItem.parent}-${subItem.name}`}
+                              type="button"
+                              onClick={() => {
+                                const current = formData.subcategories || [];
+                                const next = current.includes(subItem.name)
+                                  ? current.filter(s => s !== subItem.name)
+                                  : [...current, subItem.name];
+                                setFormData(prev => ({ ...prev, subcategories: next }));
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border flex items-center gap-1 cursor-pointer",
+                                isSelected
+                                  ? 'bg-[#00AEEF] text-white border-[#00AEEF] shadow-sm'
+                                  : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100 hover:border-slate-200'
+                              )}
+                            >
+                              <span className={cn(
+                                "text-[8px] font-black uppercase px-1 py-0.5 rounded mr-0.5",
+                                isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-400'
+                              )}>
+                                {subItem.parent}
+                              </span>
+                              {subItem.name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">

@@ -18,6 +18,7 @@ import Login from '@/pages/admin/Login';
 import Dashboard from '@/pages/admin/Dashboard';
 import ArticleList from '@/pages/admin/ArticleList';
 import ArticleEditor from '@/pages/admin/ArticleEditor';
+import Categories from '@/pages/admin/Categories';
 import FBImporter from '@/pages/admin/FBImporter';
 import WeeklyReport from '@/pages/admin/WeeklyReport';
 import Settings from '@/pages/admin/Settings';
@@ -54,6 +55,7 @@ export default function App() {
                   <Routes>
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="articulos" element={<ArticleList />} />
+                    <Route path="categorias" element={<Categories />} />
                     <Route path="articulos/nuevo" element={<ArticleEditor />} />
                     <Route path="articulos/editar/:id" element={<ArticleEditor />} />
                     <Route path="importar" element={<FBImporter />} />

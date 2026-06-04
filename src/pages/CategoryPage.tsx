@@ -1,32 +1,82 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Article } from '@/types';
+import { Article, Category } from '@/types';
 import PublicLayout from '@/components/Layout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'motion/react';
-import { getSafeImageUrl } from '@/lib/utils';
+import { getSafeImageUrl, cn } from '@/lib/utils';
 import { Play, Calendar, User, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { dataCache } from '@/lib/dataCache';
 
 export default function CategoryPage() {
   const { settings } = useSettings();
-  const { category } = useParams();
+  const { category: rawCategory } = useParams();
+  const category = rawCategory ? decodeURIComponent(rawCategory) : '';
+
+  const isArticleInCategory = (art: Article, targetCat: string) => {
+    if (!targetCat) return false;
+    const target = targetCat.trim().toLowerCase();
+    
+    if (Array.isArray(art.categories)) {
+      return art.categories.some(c => typeof c === 'string' && c.trim().toLowerCase() === target);
+    }
+    
+    if (typeof art.categories === 'string') {
+      return (art.categories as string)
+        .split(',')
+        .map(c => c.trim().toLowerCase())
+        .includes(target);
+    }
+    
+    // Fallback to check legacy singular "category" field
+    const legacyCat = (art as any).category;
+    if (typeof legacyCat === 'string') {
+      return legacyCat.trim().toLowerCase() === target;
+    }
+    
+    return false;
+  };
   
   // Find matching articles from local cache first for instant hydration!
   const cachedCategoryArticles = category ? dataCache.articles.filter(
-    art => Array.isArray(art.categories) && art.categories.includes(category)
+    art => isArticleInCategory(art, category)
   ) : [];
   
-  const [articles, setArticles] = useState<Article[]>(cachedCategoryArticles);
+  const [rawArticles, setRawArticles] = useState<Article[]>(cachedCategoryArticles);
+  const [categoryMeta, setCategoryMeta] = useState<Category | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState('Todas');
   const [loading, setLoading] = useState(cachedCategoryArticles.length === 0);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
+
+  // Load Category Metadata (e.g. subcategories)
+  useEffect(() => {
+    if (!category) return;
+    const fetchCategoryMeta = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'categories'));
+        let found: Category | null = null;
+        snap.forEach((doc) => {
+          const data = doc.data() as Category;
+          if (data.name.trim().toLowerCase() === category.trim().toLowerCase()) {
+            found = { id: doc.id, ...data };
+          }
+        });
+        setCategoryMeta(found);
+      } catch (error) {
+        console.error("Error fetching category meta:", error);
+      }
+    };
+    fetchCategoryMeta();
+    setSelectedSubcategory('Todas'); // Reset to default subcategory tab on parent change
+    setCurrentPage(1);
+  }, [category]);
 
   useEffect(() => {
     if (!category) return;
@@ -34,21 +84,38 @@ export default function CategoryPage() {
     
     const q = query(
       collection(db, 'articles'),
-      where('categories', 'array-contains', category),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Article));
-      setArticles(docs);
+      
+      // Update shared cache
+      dataCache.articles = docs;
+      dataCache.hasFetchedArticles = true;
+
+      // Filter articles for category with our super robust matching
+      const filtered = docs.filter(art => isArticleInCategory(art, category));
+
+      setRawArticles(filtered);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error loaded articles on CategoryPage:", error);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [category]);
 
-  const totalPages = Math.ceil(articles.length / itemsPerPage);
-  const currentArticles = articles.slice(
+  // Compute filtered articles based on subcategory tab filter
+  const filteredArticles = rawArticles.filter(art => {
+    if (selectedSubcategory === 'Todas') return true;
+    return Array.isArray(art.subcategories) && 
+           art.subcategories.some(s => s.trim().toLowerCase() === selectedSubcategory.toLowerCase());
+  });
+
+  const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
+  const currentArticles = filteredArticles.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -72,6 +139,33 @@ export default function CategoryPage() {
             </p>
           </div>
         </div>
+
+        {/* Dynamic Subcategories Filtering Tabs */}
+        {categoryMeta && categoryMeta.subcategories && categoryMeta.subcategories.length > 0 && (
+          <div className="bg-slate-50 border border-slate-100/80 p-3 rounded-[2rem] flex flex-wrap gap-2 items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4">Subsecciones:</span>
+            {['Todas', ...categoryMeta.subcategories].map((sub) => {
+              const isActive = selectedSubcategory.toLowerCase() === sub.toLowerCase();
+              return (
+                <button
+                  key={sub}
+                  onClick={() => {
+                    setSelectedSubcategory(sub);
+                    setCurrentPage(1);
+                  }}
+                  className={cn(
+                    "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 cursor-pointer",
+                    isActive
+                      ? "bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20 scale-102"
+                      : "bg-white border border-slate-100 text-slate-600 hover:bg-slate-100 hover:border-slate-200"
+                  )}
+                >
+                  {sub}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex h-64 items-center justify-center">
@@ -188,7 +282,7 @@ export default function CategoryPage() {
           </div>
         )}
 
-        {articles.length === 0 && !loading && (
+        {rawArticles.length === 0 && !loading && (
           <div className="flex h-96 flex-col items-center justify-center rounded-[3rem] bg-slate-50 border-2 border-dashed border-slate-200 text-slate-400 space-y-4">
             <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center">
               <Calendar className="h-10 w-10 opacity-20" />

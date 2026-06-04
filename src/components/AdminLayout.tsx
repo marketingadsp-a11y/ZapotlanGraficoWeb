@@ -16,7 +16,8 @@ import {
   ExternalLink,
   Sparkles,
   Users,
-  BookOpen
+  BookOpen,
+  FolderOpen
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useSettings } from '@/lib/SettingsContext';
@@ -34,6 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard', color: 'text-brand-blue' },
     { icon: FileText, label: 'Artículos', path: '/admin/articulos', color: 'text-brand-red' },
+    { icon: FolderOpen, label: 'Categorías', path: '/admin/categorias', color: 'text-[#00AEEF]' },
     { icon: Facebook, label: 'Importar FB', path: '/admin/importar', color: 'text-blue-600' },
     { icon: BarChart3, label: 'Reporte', path: '/admin/reporte', color: 'text-brand-yellow' },
     { icon: Users, label: 'Suscriptores', path: '/admin/suscriptores', color: 'text-purple-500' },
@@ -167,7 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile Navigation Bar (Bottom) - Modern Floating Style */}
       <div className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
         <nav className="flex h-16 items-center justify-around rounded-[2rem] bg-slate-900/90 backdrop-blur-xl border border-white/10 px-2 shadow-2xl shadow-slate-400/20">
-          {menuItems.slice(0, 6).map((item) => (
+          {menuItems.slice(0, 7).map((item) => (
             <Link
               key={item.path}
               to={item.path}

@@ -9,6 +9,7 @@ export interface Article {
   videoUrl?: string;
   videoAspectRatio?: 'vertical' | 'horizontal';
   categories: string[];
+  subcategories?: string[];
   tags?: string[];
   author: string;
   createdAt: Timestamp;
@@ -60,4 +61,12 @@ export interface Subscriber {
   name: string;
   phoneNumber: string;
   createdAt: Timestamp;
+}
+
+export interface Category {
+  id: string; // URL slugs/name id
+  name: string;
+  description?: string;
+  subcategories?: string[];
+  createdAt?: Timestamp;
 }
