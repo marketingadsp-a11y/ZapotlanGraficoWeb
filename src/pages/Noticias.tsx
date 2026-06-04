@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Article } from '@/types';
@@ -20,9 +20,25 @@ export default function Noticias() {
   const { settings } = useSettings();
   const [articles, setArticles] = useState<Article[]>(dataCache.articles);
   const [loading, setLoading] = useState(!dataCache.hasFetchedArticles);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParam = searchParams.get('search') || '';
+  const [searchQuery, setSearchQuery] = useState(searchParam);
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // Sync searchQuery with URL dynamic params
+  useEffect(() => {
+    setSearchQuery(searchParam);
+  }, [searchParam]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (value) {
+      setSearchParams({ search: value }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
   useEffect(() => {
     const q = query(
@@ -128,7 +144,7 @@ export default function Noticias() {
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => {
-                    setSearchQuery(e.target.value);
+                    handleSearchChange(e.target.value);
                     setSelectedTag(null); // Clear hashtag filtering if typing manually
                   }}
                   placeholder="Escribe palabras clave, título o hashtags de la nota..."
@@ -136,7 +152,7 @@ export default function Noticias() {
                 />
                 {searchQuery && (
                   <button 
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white uppercase text-[9px] font-black tracking-widest bg-white/10 px-2 py-1 rounded"
                   >
                     Limpiar
@@ -236,7 +252,7 @@ export default function Noticias() {
                   onClick={() => {
                     setSelectedCategory('Todos');
                     setSelectedTag(null);
-                    setSearchQuery('');
+                    handleSearchChange('');
                   }}
                   className="text-[10px] font-extrabold uppercase tracking-widest text-[#ED1C24] hover:underline"
                 >
@@ -337,7 +353,7 @@ export default function Noticias() {
               onClick={() => {
                 setSelectedCategory('Todos');
                 setSelectedTag(null);
-                setSearchQuery('');
+                handleSearchChange('');
               }}
               className="px-6 py-3 rounded-full bg-[#00AEEF] text-white font-black text-[10px] uppercase tracking-widest hover:bg-[#00AEEF]/80 transition-all shadow-sm"
             >

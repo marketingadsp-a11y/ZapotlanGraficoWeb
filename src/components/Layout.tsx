@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe, Youtube, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -12,7 +12,10 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const { settings } = useSettings();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = React.useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = React.useState(false);
+  const [headerSearchQuery, setHeaderSearchQuery] = React.useState('');
   const { scrollY } = useScroll();
   
   const headerHeight = useTransform(scrollY, [0, 50], [80, 64]);
@@ -224,9 +227,66 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
             {/* Actions - Minimalist */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="rounded-2xl hover:bg-slate-100 text-slate-500">
-                <Search className="h-5 w-5" />
-              </Button>
+              <div className="relative flex items-center">
+                <AnimatePresence initial={false}>
+                  {isSearchExpanded && (
+                    <motion.form
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: "auto", opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      className="relative flex items-center overflow-hidden"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (headerSearchQuery.trim()) {
+                          navigate(`/noticias?search=${encodeURIComponent(headerSearchQuery.trim())}`);
+                        }
+                      }}
+                    >
+                      <input
+                        type="text"
+                        placeholder="Buscar..."
+                        value={headerSearchQuery}
+                        onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                        className="w-28 sm:w-48 h-10 pl-3 pr-8 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/50 transition-all mr-1"
+                        autoFocus
+                      />
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "rounded-2xl hover:bg-slate-100 text-slate-500",
+                    isSearchExpanded && "text-[#00AEEF]"
+                  )}
+                  onClick={() => {
+                    if (isSearchExpanded) {
+                      if (headerSearchQuery.trim()) {
+                        navigate(`/noticias?search=${encodeURIComponent(headerSearchQuery.trim())}`);
+                      } else {
+                        setIsSearchExpanded(false);
+                      }
+                    } else {
+                      setIsSearchExpanded(true);
+                    }
+                  }}
+                >
+                  {isSearchExpanded ? (
+                    <X 
+                      className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsSearchExpanded(false);
+                        setHeaderSearchQuery('');
+                      }} 
+                    />
+                  ) : (
+                    <Search className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
               <div className="hidden sm:block h-8 w-px bg-slate-200 mx-1" />
               
               {/* Dynamic Social Icons */}
