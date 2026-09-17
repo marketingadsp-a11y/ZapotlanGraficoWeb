@@ -1,0 +1,320 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { collection, query, where, getDocs, doc, updateDoc, increment, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/firebase';
+import { Article } from '@/types';
+import PublicLayout from '@/components/Layout';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import ReactMarkdown from 'react-markdown';
+import { Share2, MessageCircle, Eye, Facebook, Twitter, Link as LinkIcon, ArrowLeft, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
+import { motion } from 'motion/react';
+import { getSafeImageUrl, cn } from '@/lib/utils';
+import { useSettings } from '@/lib/SettingsContext';
+import { dataCache } from '@/lib/dataCache';
+import Secciones from '@/components/Secciones';
+import PromoAd from '@/components/PromoAd';
+
+export default function ArticleDetail() {
+  const { settings } = useSettings();
+  const { slug } = useParams();
+  
+  // Try to find the article in the local dataCache first for instant hydration!
+  const initialArticleValue = slug ? (dataCache.articles.find(a => a.slug === slug) || null) : null;
+  
+  const [article, setArticle] = useState<Article | null>(initialArticleValue);
+  const [loading, setLoading] = useState(!initialArticleValue);
+
+  useEffect(() => {
+    const fetchArticle = async () => {
+      if (!slug) return;
+      
+      const cached = dataCache.articles.find(a => a.slug === slug);
+      if (cached) {
+        setArticle(cached);
+        setLoading(false);
+      }
+      
+      const q = query(collection(db, 'articles'), where('slug', '==', slug));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const data = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Article;
+        setArticle(data);
+        
+        // Increment views
+        const articleRef = doc(db, 'articles', data.id);
+        await updateDoc(articleRef, { views: increment(1) });
+
+        // Log activity
+        await addDoc(collection(db, 'activity'), {
+          type: 'view',
+          articleId: data.id,
+          timestamp: Timestamp.now(),
+          userId: 'anonymous'
+        });
+      }
+      setLoading(false);
+    };
+
+    fetchArticle();
+  }, [slug]);
+
+  useEffect(() => {
+    if (!article) return;
+
+    const previousTitle = document.title;
+    document.title = `${article.title} | ${settings.siteName || 'Zapotlán Gráfico'}`;
+
+    const updateMetaTag = (selector: string, attributeName: string, attributeValue: string, contentValue: string) => {
+      let element = document.querySelector(selector);
+      if (!element) {
+        element = document.createElement('meta');
+        element.setAttribute(attributeName, attributeValue);
+        document.head.appendChild(element);
+      }
+      element.setAttribute('content', contentValue || '');
+    };
+
+    const finalDescription = article.metaDescription || article.summary || '';
+    const finalOgTitle = article.ogTitle || article.title || '';
+    const finalOgDescription = article.ogDescription || finalDescription;
+    const finalOgImage = article.ogImage || article.imageUrl || '';
+
+    updateMetaTag('meta[name="description"]', 'name', 'description', finalDescription);
+    updateMetaTag('meta[property="og:title"]', 'property', 'og:title', finalOgTitle);
+    updateMetaTag('meta[property="og:description"]', 'property', 'og:description', finalOgDescription);
+    updateMetaTag('meta[property="og:image"]', 'property', 'og:image', finalOgImage);
+    updateMetaTag('meta[property="og:url"]', 'property', 'og:url', window.location.href);
+    updateMetaTag('meta[property="og:type"]', 'property', 'og:type', 'article');
+
+    // Twitter
+    updateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    updateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', finalOgTitle);
+    updateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', finalOgDescription);
+    updateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', finalOgImage);
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [article, settings]);
+
+  const handleShare = async (platform: string) => {
+    if (!article) return;
+    const url = window.location.href;
+    
+    if (platform === 'copy') {
+      navigator.clipboard.writeText(url);
+      toast.success('Enlace copiado al portapapeles');
+    } else {
+      // Log share activity
+      await addDoc(collection(db, 'activity'), {
+        type: 'share',
+        articleId: article.id,
+        timestamp: Timestamp.now(),
+        userId: 'anonymous'
+      });
+      toast.info(`Compartiendo en ${platform}...`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <PublicLayout>
+        <div className="flex h-[60vh] items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"></div>
+        </div>
+      </PublicLayout>
+    );
+  }
+
+  if (!article) {
+    return (
+      <PublicLayout>
+        <div className="flex h-[60vh] flex-col items-center justify-center space-y-6">
+          <div className="text-8xl font-black text-slate-200">404</div>
+          <h1 className="text-2xl font-black uppercase tracking-tighter">Nota no encontrada</h1>
+          <Link to="/">
+            <Button className="rounded-full bg-[#00AEEF] hover:bg-[#00AEEF]/90 px-8">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Volver al inicio
+            </Button>
+          </Link>
+        </div>
+      </PublicLayout>
+    );
+  }
+
+  return (
+    <PublicLayout>
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* Secciones Bar */}
+        <div className="mx-auto max-w-4xl">
+          <Secciones currentCategory={article.categories?.[0] || 'General'} />
+        </div>
+
+        <motion.article 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-auto max-w-4xl space-y-10"
+        >
+          {/* Breadcrumbs & Meta */}
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              {article.categories?.map(cat => (
+                <Badge key={cat} className="bg-[#ED1C24] text-white border-none px-4 py-1 text-[10px] font-black uppercase tracking-widest">
+                  {cat}
+                </Badge>
+              ))}
+            </div>
+            
+            <h1 className="text-4xl font-black leading-[1.1] tracking-tighter sm:text-5xl lg:text-6xl text-slate-900">
+              {article.title}
+            </h1>
+
+            <p className="text-xl font-medium text-slate-500 leading-relaxed border-l-4 border-[#FFF200] pl-6">
+              {article.summary}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-6 py-4 border-y border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {settings.showAuthor !== false && (
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-[#00AEEF] flex items-center justify-center text-white font-black">
+                    {article.author[0]}
+                  </div>
+                  <span className="text-slate-900">{article.author}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#ED1C24]" />
+                <span>{format(article.createdAt.toDate(), "d 'de' MMMM, yyyy", { locale: es })}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-[#00AEEF]" />
+                <span>{article.views} vistas</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Media */}
+          <div className={cn(
+            "relative overflow-hidden rounded-[2.5rem] bg-slate-900 shadow-2xl transition-all duration-300",
+            article.videoUrl && article.videoAspectRatio === 'vertical' 
+              ? "aspect-[9/16] max-w-sm mx-auto w-full border border-slate-800" 
+              : "w-full"
+          )}>
+            {article.videoUrl ? (
+              <div className={cn(
+                "w-full h-full",
+                article.videoAspectRatio === 'vertical' ? "" : "aspect-video"
+              )}>
+                <iframe
+                  src={article.videoUrl.includes('facebook.com') || article.videoUrl.includes('fb.watch') || article.videoUrl.includes('fb.me')
+                    ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(article.videoUrl)}&show_text=0`
+                    : article.videoUrl.includes('youtube.com') || article.videoUrl.includes('youtu.be')
+                      ? article.videoUrl.replace('watch?v=', 'embed/').split('&')[0].replace('youtu.be/', 'youtube.com/embed/')
+                      : article.videoUrl
+                  }
+                  className="h-full w-full border-0 animate-fade-in"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
+              </div>
+            ) : (
+              <img
+                src={getSafeImageUrl(article.imageUrl)}
+                alt={article.title}
+                className="w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            )}
+          </div>
+
+          {/* Content Body */}
+          <div className="grid gap-12 lg:grid-cols-[1fr_240px]">
+            <div className="prose prose-slate prose-lg max-w-none 
+              prose-headings:font-black prose-headings:tracking-tighter prose-headings:uppercase
+              prose-p:leading-relaxed prose-p:text-slate-600 prose-p:font-medium
+              prose-strong:text-slate-900 prose-strong:font-black
+              prose-a:text-[#00AEEF] prose-a:no-underline hover:prose-a:underline
+              prose-img:rounded-3xl prose-img:shadow-xl">
+              <ReactMarkdown>{article.content}</ReactMarkdown>
+
+              {/* Banner de Publicidad Interna en la nota */}
+              <PromoAd type="horizontal" className="my-8" />
+
+              {article.tags && article.tags.length > 0 && (
+                <div className="mt-12 flex flex-wrap gap-2.5 pt-6 border-t border-slate-100">
+                  {article.tags.map(tag => (
+                    <span 
+                      key={tag} 
+                      className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-[#00AEEF] bg-[#00AEEF]/5 hover:bg-[#00AEEF]/10 px-3.5 py-1.5 rounded-full transition-all"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Sidebar Actions */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-32 space-y-6">
+                <PromoAd type="square" className="w-full" />
+                <div className="flex flex-col gap-3">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-14 w-14 rounded-2xl border-slate-200 text-[#1877F2] hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2] transition-all shadow-sm"
+                    onClick={() => handleShare('facebook')}
+                    title="Compartir en Facebook"
+                  >
+                    <Facebook className="h-6 w-6" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-14 w-14 rounded-2xl border-slate-200 text-[#1DA1F2] hover:bg-[#1DA1F2] hover:text-white hover:border-[#1DA1F2] transition-all shadow-sm"
+                    onClick={() => handleShare('twitter')}
+                    title="Compartir en Twitter / X"
+                  >
+                    <Twitter className="h-6 w-6" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-14 w-14 rounded-2xl border-slate-200 text-slate-700 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm"
+                    onClick={() => handleShare('copy')}
+                    title="Copiar enlace"
+                  >
+                    <LinkIcon className="h-6 w-6" />
+                  </Button>
+                </div>
+                <div className="h-px bg-slate-100" />
+                <div className="flex flex-col items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <MessageCircle className="h-6 w-6 text-[#00AEEF]" />
+                  <span>{article.interactions}</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          {/* Mobile Actions */}
+          <div className="flex items-center justify-center gap-6 border-t border-slate-100 py-10 lg:hidden">
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-slate-100 hover:bg-[#1877F2]/10" onClick={() => handleShare('facebook')}>
+              <Facebook className="h-5 w-5 text-[#1877F2]" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-slate-100 hover:bg-[#1DA1F2]/10" onClick={() => handleShare('twitter')}>
+              <Twitter className="h-5 w-5 text-[#1DA1F2]" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-slate-100 hover:bg-slate-200" onClick={() => handleShare('copy')}>
+              <LinkIcon className="h-5 w-5 text-slate-700" />
+            </Button>
+          </div>
+        </motion.article>
+      </div>
+    </PublicLayout>
+  );
+}
