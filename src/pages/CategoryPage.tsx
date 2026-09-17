@@ -596,16 +596,17 @@ export default function CategoryPage() {
               </div>
             ) : (
               <div className="space-y-12">
-                <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-6 sm:gap-10 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
                   {currentArticles.map((article, index) => (
                     <motion.div
                       key={article.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.05 }}
+                      className="min-w-0 w-full"
                     >
-                      <Link to={`/nota/${article.slug}`} className="group block space-y-5">
-                        <div className="relative aspect-[16/10] overflow-hidden rounded-[2.5rem] bg-slate-100 shadow-sm border border-slate-100">
+                      <Link to={`/nota/${article.slug}`} className="group block space-y-4 sm:space-y-5 min-w-0 w-full">
+                        <div className="relative aspect-[16/10] overflow-hidden rounded-2xl sm:rounded-[2.5rem] bg-slate-100 shadow-sm border border-slate-100 w-full shrink-0">
                           <img
                             src={getSafeImageUrl(article.imageUrl)}
                             alt={article.title}
@@ -620,34 +621,34 @@ export default function CategoryPage() {
                             </div>
                           )}
                           <div className="absolute top-4 left-4">
-                            <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none text-[8px] font-black uppercase tracking-widest px-3">
+                            <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none text-[8px] font-black uppercase tracking-widest px-3 shadow-sm">
                               {category}
                             </Badge>
                           </div>
                         </div>
-                        <div className="space-y-3 px-2">
-                          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="h-3 w-3 text-[#ED1C24]" />
+                        <div className="space-y-2 sm:space-y-3 px-1 sm:px-2 min-w-0">
+                          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 min-w-0 flex-wrap">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Calendar className="h-3.5 w-3.5 text-[#ED1C24]" />
                               {format(article.createdAt.toDate(), "d MMM, yyyy", { locale: es })}
                             </div>
-                            {settings.showAuthor !== false && (
+                            {settings.showAuthor !== false && article.author && (
                               <>
                                 <span>•</span>
-                                <div className="flex items-center gap-1.5">
-                                  <User className="h-3 w-3 text-[#00AEEF]" />
-                                  {article.author}
+                                <div className="flex items-center gap-1.5 min-w-0 truncate max-w-[140px]">
+                                  <User className="h-3.5 w-3.5 text-[#00AEEF] shrink-0" />
+                                  <span className="truncate">{article.author}</span>
                                 </div>
                               </>
                             )}
                           </div>
-                          <h3 className="text-2xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2">
+                          <h3 className="text-xl sm:text-2xl font-black leading-tight tracking-tight group-hover:text-[#00AEEF] transition-colors line-clamp-2 break-words [overflow-wrap:anywhere]">
                             {article.title}
                           </h3>
-                          <p className="text-sm font-medium text-slate-500 line-clamp-2">
+                          <p className="text-sm font-medium text-slate-500 line-clamp-2 leading-relaxed break-words [overflow-wrap:anywhere]">
                             {article.summary}
                           </p>
-                          <div className="pt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="pt-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#ED1C24] opacity-0 group-hover:opacity-100 transition-opacity">
                             Leer más <ChevronRight className="h-3 w-3" />
                           </div>
                         </div>

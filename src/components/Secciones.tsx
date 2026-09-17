@@ -16,16 +16,16 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
   if (!featured || featured.length === 0) return null;
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 w-full min-w-0 overflow-hidden">
       {currentCategory ? (
         // Special 2-icon view when browsing a category
-        <div className="flex flex-wrap gap-4 md:gap-6">
+        <div className="flex flex-wrap gap-4 md:gap-6 min-w-0">
           {/* Icon 1: Go back to main page */}
           <motion.div
             initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
             whileHover={{ scale: 1.05 }}
-            className="group"
+            className="group shrink-0"
           >
             <Link to="/" className="flex flex-col items-center gap-2">
               <div className="h-16 w-16 md:h-18 md:w-18 rounded-[2rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 group-hover:text-[#ED1C24] group-hover:border-[#ED1C24] group-hover:shadow-xl group-hover:shadow-[#ED1C24]/10 transition-all duration-300">
@@ -58,7 +58,7 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 whileHover={{ scale: 1.05 }}
-                className="group"
+                className="group shrink-0"
               >
                 <Link to={targetUrl} className="flex flex-col items-center gap-2 pointer-events-none">
                   <div
@@ -78,7 +78,7 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
         </div>
       ) : (
         // Standard full list view
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4 md:gap-6 w-full min-w-0">
           {featured.map((category) => {
             const catDoc = categories.find(
               (c) => c.name.trim().toLowerCase() === category.trim().toLowerCase()
@@ -101,16 +101,16 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 whileHover={{ scale: 1.05 }}
-                className="group"
+                className="group min-w-0 w-full flex flex-col items-center"
               >
-                <Link to={targetUrl} className="flex flex-col items-center gap-2">
+                <Link to={targetUrl} className="flex flex-col items-center gap-2 w-full min-w-0">
                   <div
-                    className={`h-16 w-16 md:h-18 md:w-18 rounded-[2rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 ${hoverClass} group-hover:shadow-xl transition-all duration-300`}
+                    className={`h-16 w-16 md:h-18 md:w-18 rounded-[2rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 ${hoverClass} group-hover:shadow-xl transition-all duration-300 shrink-0`}
                   >
                     <Icon className="h-7 w-7 md:h-8 md:w-8" />
                   </div>
                   <span
-                    className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${textHover} group-hover:text-slate-950 text-center px-1`}
+                    className={`text-[9px] sm:text-[10px] md:text-xs font-black uppercase tracking-wider ${textHover} group-hover:text-slate-950 text-center px-1 truncate max-w-full`}
                   >
                     {category}
                   </span>

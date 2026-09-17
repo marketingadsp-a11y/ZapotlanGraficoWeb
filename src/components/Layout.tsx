@@ -41,7 +41,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-brand-blue/20 selection:text-brand-blue">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-brand-blue/20 selection:text-brand-blue overflow-x-hidden w-full">
       {/* Top Bar - More subtle and elegant */}
       <div className="hidden lg:block bg-slate-900 py-2 text-center">
         <div className="container mx-auto px-4 flex justify-between items-center">
@@ -288,10 +288,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                   )}
                 </Button>
               </div>
-              <div className="hidden sm:block h-8 w-px bg-slate-200 mx-1" />
+              <div className="hidden md:block h-8 w-px bg-slate-200 mx-1" />
               
-              {/* Dynamic Social Icons */}
-              <div className="flex items-center gap-1">
+              {/* Dynamic Social Icons (desktop / tablet) */}
+              <div className="hidden md:flex items-center gap-1">
                 {settings.facebookUrl && (
                   <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer" title="Facebook">
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-[#1877F2] hover:bg-[#1877F2]/10 transition-colors">
@@ -334,7 +334,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </header>
 
       {/* Main Content */}
-      <main className="min-h-[calc(100vh-400px)]">
+      <main className="min-h-[calc(100vh-400px)] overflow-x-hidden w-full">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
