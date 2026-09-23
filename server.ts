@@ -42,6 +42,49 @@ async function startServer() {
     }
   });
 
+  // Audio Proxy endpoint for Google Drive (streaming)
+  app.get("/api/audio-proxy", async (req, res) => {
+    const { id, url } = req.query;
+    let driveId = id as string;
+    if (!driveId && url) {
+      const match = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) driveId = match[1];
+    }
+
+    if (!driveId) {
+      return res.status(400).json({ error: "Missing driveId" });
+    }
+
+    const targetUrl = `https://drive.usercontent.google.com/download?id=${driveId}&export=download`;
+    try {
+      const headers: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      };
+      if (req.headers.range) {
+        headers["Range"] = req.headers.range as string;
+      }
+
+      const driveRes = await axios.get(targetUrl, {
+        headers,
+        responseType: "stream",
+        validateStatus: (s) => s >= 200 && s < 400,
+        timeout: 25000,
+      });
+
+      res.status(driveRes.status);
+      res.setHeader("Content-Type", driveRes.headers["content-type"] || "audio/mpeg");
+      res.setHeader("Accept-Ranges", "bytes");
+      if (driveRes.headers["content-length"]) res.setHeader("Content-Length", driveRes.headers["content-length"]);
+      if (driveRes.headers["content-range"]) res.setHeader("Content-Range", driveRes.headers["content-range"]);
+      driveRes.data.pipe(res);
+    } catch (err: any) {
+      console.error("Error streaming audio from Google Drive:", err?.message);
+      if (!res.headersSent) {
+        res.status(502).json({ error: "Failed to stream audio", message: err?.message });
+      }
+    }
+  });
+
   // API Routes
   app.post("/api/import-fb", async (req, res) => {
     const { url } = req.body;

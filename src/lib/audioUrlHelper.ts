@@ -7,18 +7,17 @@ export function formatAudioStreamUrl(rawUrl: string): string {
   const url = rawUrl.trim();
 
   // 1. Google Drive:
-  // Formato: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  // Convertimos a nuestro endpoint proxy para evitar restricciones CORP de Google Drive
   const driveFileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (driveFileMatch && driveFileMatch[1]) {
     const fileId = driveFileMatch[1];
-    return `https://docs.google.com/uc?export=open&id=${fileId}`;
+    return `/api/audio-proxy?id=${fileId}`;
   }
 
-  // Formato: https://drive.google.com/open?id=FILE_ID
   const driveIdMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if ((url.includes('drive.google.com') || url.includes('docs.google.com')) && driveIdMatch && driveIdMatch[1]) {
+  if ((url.includes('drive.google.com') || url.includes('docs.google.com') || url.includes('drive.usercontent.google.com')) && driveIdMatch && driveIdMatch[1]) {
     const fileId = driveIdMatch[1];
-    return `https://docs.google.com/uc?export=open&id=${fileId}`;
+    return `/api/audio-proxy?id=${fileId}`;
   }
 
   // 2. Dropbox:
