@@ -1,13 +1,28 @@
 {
-  "functions": {
-    "api/*.ts": {
-      "includeFiles": "dist/**"
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/revista/(.*)", "destination": "/api/magazine-ssr?slugOrId=$1" },
-    { "source": "/nota/(.*)", "destination": "/api/article-ssr?slug=$1" },
+    {
+      "source": "/revista/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/magazine-ssr?slugOrId=$1"
+    },
+    {
+      "source": "/nota/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/article-ssr?slug=$1"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
