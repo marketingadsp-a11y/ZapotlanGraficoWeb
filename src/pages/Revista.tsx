@@ -3,22 +3,20 @@ import { Link } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase';
 import PublicLayout from '@/components/Layout';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { motion } from 'motion/react';
 import { 
   BookOpen, 
-  Calendar, 
-  Eye, 
-  Image as ImageIcon, 
-  ChevronRight, 
   Share2, 
   Sparkles,
-  Music,
-  BookMarked,
-  Layers,
-  ArrowUpRight
+  ArrowRight,
+  Bookmark,
+  Leaf,
+  Cpu,
+  Heart,
+  Utensils,
+  Newspaper,
+  Compass,
+  Image as ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dataCache } from '@/lib/dataCache';
@@ -38,11 +36,96 @@ interface Flipbook {
   autoPlayInterval?: number;
   audioUrl?: string;
   autoPlayAudio?: boolean;
+  category?: string;
 }
+
+// Helper para asignar categoría, icono, colores y frase inferior estilo showcase editorial
+const getMagazineTheme = (fb: Flipbook, index: number) => {
+  const text = `${fb.category || ''} ${fb.title} ${fb.description || ''}`.toLowerCase();
+
+  if (text.includes('naturaleza') || text.includes('medio ambiente') || text.includes('ecolog') || text.includes('bosque') || text.includes('planeta') || text.includes('tierra')) {
+    return {
+      name: 'Naturaleza',
+      icon: Leaf,
+      color: 'text-emerald-600',
+      tagline: 'Un planeta, mil maravillas'
+    };
+  }
+  if (text.includes('tecnolog') || text.includes('digital') || text.includes('innovac') || text.includes('ia') || text.includes('futuro') || text.includes('sistema')) {
+    return {
+      name: 'Tecnología',
+      icon: Cpu,
+      color: 'text-blue-600',
+      tagline: 'El futuro está en tus manos'
+    };
+  }
+  if (text.includes('salud') || text.includes('bienestar') || text.includes('cuerpo') || text.includes('mente') || text.includes('deporte') || text.includes('vida')) {
+    return {
+      name: 'Salud y Bienestar',
+      icon: Heart,
+      color: 'text-rose-500',
+      tagline: 'Pequeños hábitos, grandes cambios'
+    };
+  }
+  if (text.includes('sabor') || text.includes('comida') || text.includes('cocina') || text.includes('gastronom') || text.includes('receta')) {
+    return {
+      name: 'Gastronomía',
+      icon: Utensils,
+      color: 'text-amber-600',
+      tagline: 'Recetas que inspiran'
+    };
+  }
+  if (text.includes('noticia') || text.includes('actual') || text.includes('politica') || text.includes('mundo') || text.includes('informacion')) {
+    return {
+      name: 'Actualidad',
+      icon: Newspaper,
+      color: 'text-sky-600',
+      tagline: 'Noticias que importan'
+    };
+  }
+  if (text.includes('viaje') || text.includes('turismo') || text.includes('destino') || text.includes('aventura') || text.includes('mundo') || text.includes('sur')) {
+    return {
+      name: 'Viajes',
+      icon: Compass,
+      color: 'text-cyan-600',
+      tagline: 'El mundo te espera'
+    };
+  }
+  if (text.includes('cultura') || text.includes('arte') || text.includes('historia') || text.includes('tradicion')) {
+    return {
+      name: 'Cultura',
+      icon: Leaf,
+      color: 'text-emerald-600',
+      tagline: 'Tradición y memoria viva'
+    };
+  }
+
+  // Temas predefinidos ordenados armónicamente idénticos a la imagen de muestra
+  const presets = [
+    { name: 'Cultura', icon: Leaf, color: 'text-emerald-600', tagline: 'Un planeta, mil maravillas' },
+    { name: 'Tecnología', icon: Cpu, color: 'text-blue-600', tagline: 'El futuro está en tus manos' },
+    { name: 'Salud y Bienestar', icon: Heart, color: 'text-rose-500', tagline: 'Pequeños hábitos, grandes cambios' },
+    { name: 'Gastronomía', icon: Utensils, color: 'text-amber-600', tagline: 'Recetas que inspiran' },
+    { name: 'Actualidad', icon: Newspaper, color: 'text-sky-600', tagline: 'Noticias que importan' },
+    { name: 'Viajes', icon: Compass, color: 'text-cyan-600', tagline: 'El mundo te espera' },
+  ];
+
+  return presets[index % presets.length];
+};
 
 export default function Revista() {
   const [flipbooks, setFlipbooks] = useState<Flipbook[]>(dataCache.flipbooks as Flipbook[]);
   const [loading, setLoading] = useState(!dataCache.hasFetchedFlipbooks);
+
+  // Guardados / Favoritos en LocalStorage
+  const [savedIds, setSavedIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('saved_magazines');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const q = query(collection(db, 'flipbooks'), orderBy('createdAt', 'desc'));
@@ -76,6 +159,24 @@ export default function Revista() {
     }
   };
 
+  const toggleBookmark = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSavedIds(prev => {
+      const exists = prev.includes(id);
+      const updated = exists ? prev.filter(x => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem('saved_magazines', JSON.stringify(updated));
+      } catch {}
+      if (exists) {
+        toast.info("Revista eliminada de tus guardados");
+      } else {
+        toast.success("¡Revista guardada en tus favoritos!");
+      }
+      return updated;
+    });
+  };
+
   return (
     <PublicLayout>
       <div className="container mx-auto px-4 py-6 space-y-10">
@@ -86,13 +187,20 @@ export default function Revista() {
         <PromoAd type="horizontal" className="my-2" />
 
         {/* ========================================================================= */}
-        {/* ESTANTE MODERNO DE REVISTAS */}
+        {/* ESCAPARATE MODERNO DE REVISTAS */}
         {/* ========================================================================= */}
         <section className="space-y-8">
           
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="h-8 w-1.5 bg-[#00AEEF] rounded-full" />
-            <h2 className="text-2xl font-black uppercase tracking-tighter">Ediciones Disponibles</h2>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-1.5 bg-[#00AEEF] rounded-full" />
+              <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white">
+                Ediciones Disponibles
+              </h2>
+            </div>
+            <span className="text-xs font-bold text-slate-400">
+              {flipbooks.length} {flipbooks.length === 1 ? 'edición' : 'ediciones'}
+            </span>
           </div>
 
           {/* Estado de carga */}
@@ -119,166 +227,139 @@ export default function Revista() {
             </div>
           ) : (
             /* =============================================================== */
-            /* ESTANTE MODERNO / SHOWCASE KIOSK GRID */
+            /* GRID ESTILO ESCAPARATE EDITORIAL (2 COLUMNAS COMO LA IMAGEN)   */
             /* =============================================================== */
-            <div className="space-y-16">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-12">
-                {flipbooks.map((fb, index) => {
-                  const isNewest = index === 0;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
+              {flipbooks.map((fb, index) => {
+                const isNewest = index === 0;
+                const theme = getMagazineTheme(fb, index);
+                const CategoryIcon = theme.icon;
+                const isSaved = savedIds.includes(fb.id);
 
-                  return (
-                    <motion.div
-                      key={fb.id}
-                      initial={{ opacity: 0, y: 24 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.06 }}
-                      className="group flex flex-col"
+                return (
+                  <motion.div
+                    key={fb.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.05 }}
+                    className="group bg-white dark:bg-slate-900 rounded-2xl md:rounded-[1.35rem] border border-slate-100 dark:border-slate-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_28px_-6px_rgba(0,0,0,0.12)] hover:border-slate-200 dark:hover:border-slate-700 transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:gap-5 items-stretch relative overflow-hidden"
+                  >
+                    {/* COLUMNA IZQUIERDA: Portada de la Revista */}
+                    <Link
+                      to={`/revista/${fb.id}`}
+                      className="relative w-full sm:w-[150px] md:w-[165px] lg:w-[175px] shrink-0 aspect-[1/1.34] rounded-xl overflow-hidden shadow-md shadow-slate-950/15 group-hover:shadow-xl transition-all duration-300 bg-slate-950 block"
                     >
-                      {/* Enlace al visor de la revista */}
-                      <Link to={`/revista/${fb.id}`} className="block">
-                        
-                        {/* ========================================================= */}
-                        {/* OBJETO REVISTA FÍSICA APOYADA EN EL ESTANTE */}
-                        {/* ========================================================= */}
-                        <div className="relative mb-3 flex justify-center items-end">
-                          
-                          {/* Sombra de apoyo en la base del estante */}
-                          <div className="absolute -bottom-2 w-[85%] h-5 bg-black/40 blur-md rounded-full pointer-events-none transition-all duration-300 group-hover:w-[92%] group-hover:bg-black/60 group-hover:blur-lg" />
+                      {/* Portada */}
+                      {fb.coverUrl ? (
+                        <img
+                          src={fb.coverUrl}
+                          alt={fb.title}
+                          className="w-full h-full object-cover select-none transition-transform duration-500 group-hover:scale-[1.03]"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-slate-500 text-center bg-slate-900">
+                          <ImageIcon className="h-8 w-8 mb-2 opacity-50" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider">Sin Portada</span>
+                        </div>
+                      )}
 
-                          {/* Volumen de la Revista */}
-                          <div className="relative w-full max-w-[280px] aspect-[1/1.42] rounded-r-2xl rounded-l-md overflow-hidden bg-slate-900 shadow-xl border border-slate-700/40 transform transition-all duration-500 ease-out group-hover:-translate-y-4 group-hover:scale-[1.03] group-hover:shadow-[0_25px_35px_-5px_rgba(0,174,239,0.25)] flex items-center justify-center">
-                            
-                            {/* Borde / Lomo Encuadernado (Efecto Revista Impresa) */}
-                            <div className="absolute top-0 bottom-0 left-0 w-3.5 bg-gradient-to-r from-black/80 via-black/30 to-transparent z-20 pointer-events-none" />
-                            <div className="absolute top-0 bottom-0 left-3 w-px bg-white/10 z-20 pointer-events-none" />
-                            
-                            {/* Brillo Satinado Diagonal (Gloss Reflejo de Revista de Quiosco) */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/15 opacity-60 pointer-events-none z-10 group-hover:opacity-90 transition-opacity" />
+                      {/* Lomo editorial y sombra lateral encuadernada */}
+                      <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 via-black/15 to-transparent pointer-events-none z-10" />
+                      <div className="absolute inset-y-0 left-2.5 w-px bg-white/15 pointer-events-none z-10" />
 
-                            {/* PORTADA 100% COMPLETA (Sin recortes) */}
-                            {fb.coverUrl ? (
-                              <div className="w-full h-full p-1 bg-slate-950 flex items-center justify-center">
-                                <img
-                                  src={fb.coverUrl}
-                                  alt={fb.title}
-                                  className="w-full h-full object-contain drop-shadow-md select-none"
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                />
-                              </div>
-                            ) : (
-                              <div className="text-slate-400 flex flex-col items-center gap-2 p-6 text-center">
-                                <ImageIcon className="h-10 w-10 text-slate-500" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">
-                                  Portada no disponible
-                                </span>
-                              </div>
-                            )}
+                      {/* Brillo satinado diagonal */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10 opacity-70 group-hover:opacity-100 transition-opacity" />
 
-                            {/* Badge "NUEVA EDICIÓN" para la última publicación */}
-                            {isNewest && (
-                              <div className="absolute top-3 left-3 z-30">
-                                <span className="px-2.5 py-1 rounded-md bg-[#FFF200] text-slate-950 font-black text-[9px] uppercase tracking-wider shadow-md flex items-center gap-1">
-                                  <Sparkles className="h-2.5 w-2.5" />
-                                  Nueva Edición
-                                </span>
-                              </div>
-                            )}
+                      {/* Badge Nueva Edición (si es la más reciente) */}
+                      {isNewest && (
+                        <div className="absolute top-2.5 left-2.5 z-20">
+                          <span className="px-2 py-0.5 rounded-md bg-[#FFF200] text-slate-950 font-black text-[9px] uppercase tracking-wider shadow-md flex items-center gap-1">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            Nuevo
+                          </span>
+                        </div>
+                      )}
 
-                            {/* Badge de Páginas y Audio en la parte superior derecha */}
-                            <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-30">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-950/85 backdrop-blur-md text-white font-mono font-bold text-[9px] shadow-md border border-white/10">
-                                {fb.pageUrls?.length || 0} págs
-                              </span>
+                      {/* Frase / Tagline inferior sobre la portada */}
+                      <div className="absolute inset-x-0 bottom-0 p-3 pt-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-15 pointer-events-none">
+                        <p className="text-white text-xs sm:text-[13px] font-bold leading-tight drop-shadow-md">
+                          {theme.tagline}
+                        </p>
+                      </div>
+                    </Link>
 
-                              {fb.audioUrl && (
-                                <span className="px-2 py-0.5 rounded-md bg-[#00AEEF] text-white font-black text-[8px] uppercase tracking-wider shadow-md flex items-center gap-1">
-                                  <Music className="h-2.5 w-2.5" />
-                                  MP3
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Overlay interactivo en Hover: "Abrir Revista" */}
-                            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 flex flex-col items-center justify-center gap-3">
-                              <span className="h-12 w-12 rounded-full bg-[#00AEEF] text-white flex items-center justify-center shadow-2xl transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                                <BookOpen className="h-6 w-6 ml-0.5" />
-                              </span>
-                              <span className="px-3 py-1 rounded-full bg-white text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-lg">
-                                Abrir Revista 3D
-                              </span>
-                            </div>
-
-                          </div>
+                    {/* COLUMNA DERECHA: Datos de la Revista */}
+                    <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
+                      
+                      {/* Cabecera de contenido */}
+                      <div>
+                        {/* Categoría con Icono */}
+                        <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
+                          <CategoryIcon className={`h-4 w-4 ${theme.color}`} />
+                          <span className={`font-bold ${theme.color}`}>
+                            {theme.name}
+                          </span>
                         </div>
 
-                        {/* ========================================================= */}
-                        {/* REPISA FÍSICA TRIDIMENSIONAL (ESCAPARATE SHELF) */}
-                        {/* ========================================================= */}
-                        <div className="relative w-full mb-4">
-                          {/* Superficie superior del estante con reflejo */}
-                          <div className="h-2 w-full bg-gradient-to-r from-slate-200 via-white to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded-t-sm shadow-inner" />
-                          {/* Borde frontal del estante con sombra */}
-                          <div className="h-3 w-full bg-gradient-to-r from-slate-300 via-slate-200 to-slate-300 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 rounded-b-md shadow-md border-t border-white/20" />
-                          {/* Sombra proyectada del estante hacia abajo */}
-                          <div className="h-3 w-full bg-gradient-to-b from-black/20 to-transparent blur-[1px]" />
-                        </div>
-
-                        {/* Metadatos y ficha de la edición */}
-                        <div className="space-y-2 px-1">
-                          
-                          {/* Fecha y Vistas */}
-                          <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                              <Calendar className="h-3 w-3 text-[#ED1C24]" />
-                              <span>
-                                {fb.createdAt 
-                                  ? format(fb.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
-                                  : "Edición Digital"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Eye className="h-3 w-3" />
-                              <span>{fb.views || 0}</span>
-                            </div>
-                          </div>
-
-                          {/* Título de la Revista */}
-                          <h3 className="text-base font-black leading-tight tracking-tight text-slate-900 group-hover:text-[#00AEEF] transition-colors line-clamp-2">
+                        {/* Título de la Revista */}
+                        <Link to={`/revista/${fb.id}`}>
+                          <h3 className="text-slate-950 dark:text-white font-extrabold text-lg sm:text-xl tracking-tight leading-snug line-clamp-1 group-hover:text-[#007aff] transition-colors">
                             {fb.title}
                           </h3>
+                        </Link>
 
-                          {/* Descripción / Reportaje */}
-                          {fb.description && (
-                            <p className="text-xs font-medium text-slate-500 line-clamp-2 leading-relaxed">
-                              {fb.description}
-                            </p>
-                          )}
+                        {/* Descripción */}
+                        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm leading-relaxed line-clamp-3 mt-1.5 font-normal">
+                          {fb.description || 'Descubre los reportajes, artículos y contenidos exclusivos en esta edición digital.'}
+                        </p>
+                      </div>
 
-                          {/* Acciones de la Ficha */}
-                          <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#00AEEF] group-hover:translate-x-0.5 transition-transform">
-                              Leer Edición <ChevronRight className="h-3 w-3" />
-                            </span>
+                      {/* Barra Inferior de Acciones */}
+                      <div className="flex items-center justify-between mt-4 pt-2">
+                        {/* Botón Azul Leer */}
+                        <Link
+                          to={`/revista/${fb.id}`}
+                          className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#007aff] hover:bg-[#0062cc] active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/25 transition-all"
+                        >
+                          <span>Leer</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
 
-                            <button
-                              type="button"
-                              onClick={(e) => handleShare(fb, e)}
-                              className="h-8 w-8 rounded-xl bg-slate-100 hover:bg-[#00AEEF] text-slate-400 hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-sm"
-                              title="Compartir Edición"
-                            >
-                              <Share2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                        {/* Botones de acción derecha (Compartir & Guardar/Bookmark) */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleShare(fb, e)}
+                            className="p-2 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Compartir enlace"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </button>
 
+                          <button
+                            type="button"
+                            onClick={(e) => toggleBookmark(fb.id, e)}
+                            className="p-2 rounded-full text-slate-400 hover:text-[#007aff] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                            title={isSaved ? "Guardado en tus favoritos" : "Guardar revista"}
+                          >
+                            <Bookmark 
+                              className={`h-5 w-5 transition-transform active:scale-90 ${
+                                isSaved 
+                                  ? "fill-[#007aff] text-[#007aff]" 
+                                  : "stroke-[1.75]"
+                              }`} 
+                            />
+                          </button>
                         </div>
+                      </div>
 
-                      </Link>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
 
