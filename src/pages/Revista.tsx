@@ -17,7 +17,8 @@ import {
   Newspaper,
   Compass,
   Image as ImageIcon,
-  Tag
+  Tag,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dataCache } from '@/lib/dataCache';
@@ -119,6 +120,12 @@ export default function Revista() {
   const [flipbooks, setFlipbooks] = useState<Flipbook[]>(dataCache.flipbooks as Flipbook[]);
   const [loading, setLoading] = useState(!dataCache.hasFetchedFlipbooks);
   const [activeCategory, setActiveCategory] = useState<string>('Todas');
+  const [openingId, setOpeningId] = useState<string | null>(null);
+
+  const handleOpenMagazine = (fb: Flipbook) => {
+    dataCache.activeFlipbook = fb;
+    setOpeningId(fb.id);
+  };
 
   // Guardados / Favoritos en LocalStorage
   const [savedIds, setSavedIds] = useState<string[]>(() => {
@@ -315,7 +322,8 @@ export default function Revista() {
                       {/* COLUMNA IZQUIERDA: Portada de la Revista */}
                       <Link
                         to={`/revista/${fb.id}`}
-                        className="relative w-full sm:w-[150px] md:w-[165px] lg:w-[175px] shrink-0 aspect-[1/1.34] rounded-xl overflow-hidden shadow-md shadow-slate-950/15 group-hover:shadow-xl transition-all duration-300 bg-slate-950 block"
+                        onClick={() => handleOpenMagazine(fb)}
+                        className="relative w-full sm:w-[150px] md:w-[165px] lg:w-[175px] shrink-0 aspect-[1/1.34] rounded-xl overflow-hidden shadow-md shadow-slate-950/15 group-hover:shadow-xl transition-all duration-300 bg-slate-950 block touch-manipulation active:scale-[0.98]"
                       >
                         {/* Portada */}
                         {fb.coverUrl ? (
@@ -372,7 +380,11 @@ export default function Revista() {
                           </div>
 
                           {/* Título de la Revista */}
-                          <Link to={`/revista/${fb.id}`}>
+                          <Link 
+                            to={`/revista/${fb.id}`}
+                            onClick={() => handleOpenMagazine(fb)}
+                            className="touch-manipulation"
+                          >
                             <h3 className="text-slate-950 dark:text-white font-extrabold text-lg sm:text-xl tracking-tight leading-snug line-clamp-1 group-hover:text-[#007aff] transition-colors">
                               {fb.title}
                             </h3>
@@ -386,13 +398,27 @@ export default function Revista() {
 
                         {/* Barra Inferior de Acciones */}
                         <div className="flex items-center justify-between mt-4 pt-2">
-                          {/* Botón Azul Leer */}
+                          {/* Botón Azul Leer con micro-feedback */}
                           <Link
                             to={`/revista/${fb.id}`}
-                            className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#007aff] hover:bg-[#0062cc] active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/25 transition-all"
+                            onClick={() => handleOpenMagazine(fb)}
+                            className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-white font-bold text-xs sm:text-sm shadow-md transition-all touch-manipulation active:scale-95 ${
+                              openingId === fb.id
+                                ? 'bg-[#0092c7] shadow-[#0092c7]/40 ring-2 ring-[#00AEEF]/50'
+                                : 'bg-[#007aff] hover:bg-[#0062cc] shadow-blue-500/25'
+                            }`}
                           >
-                            <span>Leer</span>
-                            <ArrowRight className="h-4 w-4" />
+                            {openingId === fb.id ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>Abriendo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Leer</span>
+                                <ArrowRight className="h-4 w-4" />
+                              </>
+                            )}
                           </Link>
 
                           {/* Botones de acción derecha (Compartir & Guardar/Bookmark) */}

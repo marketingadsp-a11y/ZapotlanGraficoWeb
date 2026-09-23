@@ -13,11 +13,13 @@ interface Flipbook {
   autoPlayInterval?: number;
   audioUrl?: string;
   autoPlayAudio?: boolean;
+  category?: string;
 }
 
 export const dataCache = {
   articles: [] as Article[],
   flipbooks: [] as Flipbook[],
+  activeFlipbook: null as Flipbook | null,
   hasFetchedArticles: false,
   hasFetchedFlipbooks: false,
 };

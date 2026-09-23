@@ -55,11 +55,16 @@ export default function FlipbookViewer() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   
-  // Try to find the flipbook in the local dataCache first for instant loading
-  const initialFlipbookValue = id ? (dataCache.flipbooks.find(f => f.id === id) || null) : null;
+  // Try to find the flipbook in the local dataCache first for instant zero-lag loading
+  const initialFlipbookValue = id ? (
+    dataCache.activeFlipbook?.id === id 
+      ? dataCache.activeFlipbook 
+      : (dataCache.flipbooks.find(f => f.id === id) || null)
+  ) : null;
   
   const [flipbook, setFlipbook] = useState<Flipbook | null>(initialFlipbookValue);
   const [loading, setLoading] = useState(!initialFlipbookValue);
+  const [bookReady, setBookReady] = useState(false);
 
   // Flipbook state
   const [currentPage, setCurrentPage] = useState(0);
@@ -752,6 +757,31 @@ export default function FlipbookViewer() {
       console.error("Error loading pages into PageFlip:", err);
     }
 
+    // Signal book ready when first frame/init is completed
+    const markBookReady = () => {
+      requestAnimationFrame(() => {
+        setBookReady(true);
+      });
+    };
+
+    // Preload first page image to guarantee it is decoded and ready before revealing canvas
+    const firstPageUrl = flipbook.pageUrls[0];
+    if (firstPageUrl) {
+      const preloadImg = new Image();
+      preloadImg.src = firstPageUrl;
+      if (preloadImg.complete) {
+        markBookReady();
+      } else {
+        preloadImg.onload = markBookReady;
+        preloadImg.onerror = markBookReady;
+      }
+    } else {
+      markBookReady();
+    }
+
+    // Safety fallback: maximum 850ms to guarantee loader never stays active
+    const safetyTimer = setTimeout(markBookReady, 850);
+
     // Attach events
     pageFlip.on('init', (e: any) => {
       if (e.object) {
@@ -759,6 +789,7 @@ export default function FlipbookViewer() {
         setOrientation(orient);
         updateBookCentering(currentPageRef.current || 0, flipbook.pageUrls.length, orient === 'landscape');
       }
+      markBookReady();
     });
 
     pageFlip.on('flip', (e: any) => {
@@ -784,6 +815,7 @@ export default function FlipbookViewer() {
     pageFlipInstanceRef.current = pageFlip;
 
     return () => {
+      clearTimeout(safetyTimer);
       try {
         if (pageFlipInstanceRef.current) {
           pageFlipInstanceRef.current.destroy();
@@ -953,57 +985,74 @@ export default function FlipbookViewer() {
     }
   };
 
-  if (loading) {
+  if (!flipbook) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] text-slate-800 p-6 select-none">
-        {/* Soft background aura */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00AEEF]/10 rounded-full blur-[90px] pointer-events-none" />
-
-        <div className="relative flex flex-col items-center gap-5 z-10">
-          {/* Logo Card with elegant pulsing halo */}
-          <div className="relative p-6 rounded-3xl bg-white/90 shadow-xl shadow-slate-300/40 border border-slate-200/80 backdrop-blur-xl flex items-center justify-center min-w-[170px] min-h-[96px]">
-            {settings.logoUrl ? (
-              <img 
-                src={settings.logoUrl} 
-                alt="Logo Zapotlán Gráfico" 
-                className="h-12 sm:h-14 max-w-[200px] object-contain drop-shadow-xs animate-pulse" 
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="text-center">
-                <span className="text-base sm:text-lg font-black tracking-tight text-[#00AEEF] uppercase block">
-                  ZAPOTLÁN
-                </span>
-                <span className="text-xs sm:text-sm font-black tracking-widest text-slate-900 uppercase block -mt-1">
-                  GRÁFICO
-                </span>
-              </div>
-            )}
-
-            {/* Glowing ring animation around the logo */}
-            <span className="absolute -inset-1 rounded-[28px] border-2 border-[#00AEEF]/30 animate-ping opacity-20 pointer-events-none" />
-          </div>
-
-          {/* Slim Loading Progress Line */}
-          <div className="flex flex-col items-center gap-2 mt-1">
-            <div className="w-36 h-1 bg-slate-200 rounded-full overflow-hidden relative">
-              <div className="h-full w-full bg-gradient-to-r from-[#00AEEF] via-[#00c6ff] to-[#00AEEF] rounded-full animate-pulse" />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-mono">
-              Abriendo revista digital...
-            </p>
-          </div>
-        </div>
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent" />
       </div>
     );
   }
 
-  if (!flipbook) return null;
+  const isStillLoading = loading || !bookReady;
 
   return (
     <div className={`fixed inset-0 h-[100dvh] w-screen bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] flex flex-col text-slate-800 select-none overflow-hidden touch-none ${
       isFullscreen ? "z-50" : "z-30"
     }`}>
+      
+      {/* Loading Overlay Suave: Cero Pantalla Blanca - Cubre hasta que el canvas y portada están 100% listos */}
+      <AnimatePresence>
+        {isStillLoading && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] text-slate-800 p-6 select-none pointer-events-none"
+          >
+            {/* Soft background aura */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00AEEF]/15 rounded-full blur-[90px] pointer-events-none" />
+
+            <div className="relative flex flex-col items-center gap-5 z-10">
+              {/* Logo Card with elegant pulsing halo */}
+              <div className="relative p-6 rounded-3xl bg-white/95 shadow-2xl shadow-slate-300/50 border border-slate-200/90 backdrop-blur-2xl flex items-center justify-center min-w-[180px] min-h-[100px]">
+                {settings.logoUrl ? (
+                  <img 
+                    src={settings.logoUrl} 
+                    alt="Logo Zapotlán Gráfico" 
+                    className="h-12 sm:h-14 max-w-[200px] object-contain drop-shadow-xs animate-pulse" 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <span className="text-base sm:text-lg font-black tracking-tight text-[#00AEEF] uppercase block">
+                      ZAPOTLÁN
+                    </span>
+                    <span className="text-xs sm:text-sm font-black tracking-widest text-slate-900 uppercase block -mt-1">
+                      GRÁFICO
+                    </span>
+                  </div>
+                )}
+
+                {/* Glowing ring animation around the logo */}
+                <span className="absolute -inset-1 rounded-[28px] border-2 border-[#00AEEF]/30 animate-ping opacity-25 pointer-events-none" />
+              </div>
+
+              {/* Title & Slim Loading Progress Line */}
+              <div className="flex flex-col items-center gap-2 mt-1 max-w-xs text-center">
+                <p className="text-xs font-black text-slate-800 line-clamp-1">
+                  {flipbook.title}
+                </p>
+                <div className="w-40 h-1 bg-slate-200 rounded-full overflow-hidden relative">
+                  <div className="h-full w-full bg-gradient-to-r from-[#00AEEF] via-[#00c6ff] to-[#00AEEF] rounded-full animate-pulse" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#00AEEF] font-mono">
+                  Abriendo edición digital...
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Ambient background lighting aura */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00AEEF]/8 rounded-full blur-[160px] pointer-events-none" />
