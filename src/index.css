@@ -169,7 +169,7 @@
   display: block !important;
   box-sizing: border-box !important;
   transform: translateZ(0);
-  touch-action: pan-y;
+  touch-action: none !important;
   user-select: none;
   -webkit-user-select: none;
   margin: 0 auto;
@@ -183,6 +183,7 @@ canvas.stf__canvas {
   left: 0 !important;
   top: 0 !important;
   display: block !important;
+  touch-action: none !important;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06);
   border-radius: 6px;
 }

@@ -267,12 +267,20 @@ export default function FlipbookViewer() {
   });
 
   // Touch listeners in CAPTURE phase so pinch-to-zoom is ultra-smooth and responsive
+  // Touch listeners in CAPTURE phase so pinch-to-zoom is ultra-smooth and responsive
   useEffect(() => {
+    if (loading || !flipbook) return;
     const stage = stageContainerRef.current;
     if (!stage) return;
 
     const handleTouchStart = (e: TouchEvent) => {
-      // 2 or more fingers: PINCH TO ZOOM
+      // Don't intercept touches on interactive UI controls (buttons, links, sliders)
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('button, a, input, [role="button"]')) {
+        return;
+      }
+
+      // 2 or more fingers: ALWAYS PINCH TO ZOOM
       if (e.touches.length >= 2) {
         const t1 = e.touches[0];
         const t2 = e.touches[1];
@@ -287,7 +295,7 @@ export default function FlipbookViewer() {
         touchGestureRef.current.initialCenter = { x: centerX, y: centerY };
         touchGestureRef.current.initialPan = { ...currentPanRef.current };
 
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         return;
       }
@@ -308,12 +316,12 @@ export default function FlipbookViewer() {
             const rect = stage.getBoundingClientRect();
             const tapOffsetX = t.clientX - (rect.left + rect.width / 2);
             const tapOffsetY = t.clientY - (rect.top + rect.height / 2);
-            const targetPanX = Math.max(-280, Math.min(280, -tapOffsetX * 1.2));
-            const targetPanY = Math.max(-320, Math.min(320, -tapOffsetY * 1.2));
+            const targetPanX = -tapOffsetX * 1.5;
+            const targetPanY = -tapOffsetY * 1.5;
             applyTransform(2.5, targetPanX, targetPanY, true);
             setDisplayZoom(2.5);
           }
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
           e.stopPropagation();
           return;
         }
@@ -326,19 +334,20 @@ export default function FlipbookViewer() {
           touchGestureRef.current.mode = 'pan';
           touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
           touchGestureRef.current.startPan = { ...currentPanRef.current };
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
           e.stopPropagation();
           return;
         }
 
         touchGestureRef.current.mode = 'none';
+        touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      // Handle Pinch with 2 fingers
+      // 1. PINCH TO ZOOM with 2 fingers
       if (e.touches.length >= 2 && touchGestureRef.current.mode === 'pinch') {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
 
         const t1 = e.touches[0];
@@ -363,31 +372,40 @@ export default function FlipbookViewer() {
 
           if (nextZoom <= 1.02) {
             applyTransform(nextZoom, 0, 0, false);
+            setDisplayZoom(1.0);
           } else {
-            const maxBoundX = Math.max(0, (stage.clientWidth * nextZoom - stage.clientWidth) / 2 + 80);
-            const maxBoundY = Math.max(0, (stage.clientHeight * nextZoom - stage.clientHeight) / 2 + 100);
+            const maxBoundX = Math.max(stage.clientWidth * nextZoom, 800);
+            const maxBoundY = Math.max(stage.clientHeight * nextZoom, 1200);
             applyTransform(
               nextZoom,
               Math.max(-maxBoundX, Math.min(maxBoundX, nextPanX)),
               Math.max(-maxBoundY, Math.min(maxBoundY, nextPanY)),
               false
             );
+            setDisplayZoom(nextZoom);
           }
         }
         return;
       }
 
-      // Handle Pan when zoomed with 1 finger
+      // 2. PAN with 1 finger when zoomed
       if (e.touches.length === 1 && (touchGestureRef.current.mode === 'pan' || currentScaleRef.current > 1.05)) {
-        e.preventDefault();
+        if (e.cancelable) e.preventDefault();
         e.stopPropagation();
 
         const t = e.touches[0];
+        if (!touchGestureRef.current.startTouch.x && !touchGestureRef.current.startTouch.y) {
+          touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
+          touchGestureRef.current.startPan = { ...currentPanRef.current };
+          touchGestureRef.current.mode = 'pan';
+          return;
+        }
+
         const dx = t.clientX - touchGestureRef.current.startTouch.x;
         const dy = t.clientY - touchGestureRef.current.startTouch.y;
 
-        const maxBoundX = Math.max(0, (stage.clientWidth * currentScaleRef.current - stage.clientWidth) / 2 + 80);
-        const maxBoundY = Math.max(0, (stage.clientHeight * currentScaleRef.current - stage.clientHeight) / 2 + 100);
+        const maxBoundX = Math.max(stage.clientWidth * currentScaleRef.current, 800);
+        const maxBoundY = Math.max(stage.clientHeight * currentScaleRef.current, 1200);
 
         const newX = Math.max(-maxBoundX, Math.min(maxBoundX, touchGestureRef.current.startPan.x + dx));
         const newY = Math.max(-maxBoundY, Math.min(maxBoundY, touchGestureRef.current.startPan.y + dy));
@@ -399,17 +417,19 @@ export default function FlipbookViewer() {
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
-        touchGestureRef.current.mode = 'none';
-
-        if (currentScaleRef.current < 1.08) {
-          applyTransform(1.0, 0, 0, true);
-          setDisplayZoom(1.0);
-        } else if (currentScaleRef.current > 6.0) {
-          applyTransform(6.0, currentPanRef.current.x, currentPanRef.current.y, true);
-          setDisplayZoom(6.0);
-        } else {
-          setDisplayZoom(currentScaleRef.current);
+        if (touchGestureRef.current.mode === 'pinch') {
+          if (currentScaleRef.current < 1.08) {
+            applyTransform(1.0, 0, 0, true);
+            setDisplayZoom(1.0);
+          } else if (currentScaleRef.current > 6.0) {
+            applyTransform(6.0, currentPanRef.current.x, currentPanRef.current.y, true);
+            setDisplayZoom(6.0);
+          } else {
+            setDisplayZoom(currentScaleRef.current);
+          }
         }
+        touchGestureRef.current.mode = 'none';
+        touchGestureRef.current.startTouch = { x: 0, y: 0 };
       } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pinch') {
         if (currentScaleRef.current > 1.05) {
           touchGestureRef.current.mode = 'pan';
@@ -450,7 +470,7 @@ export default function FlipbookViewer() {
       window.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
       stage.removeEventListener('wheel', handleWheel);
     };
-  }, [applyTransform]);
+  }, [loading, flipbook, applyTransform]);
 
   // Desktop Mouse Pan controls when zoomed in
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1017,7 +1037,7 @@ export default function FlipbookViewer() {
       {/* Main Interactive Stage with 3D Flipbook Canvas */}
       <div 
         ref={stageContainerRef}
-        className="flex-1 min-h-0 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+        className="flex-1 min-h-0 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden touch-none select-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -1079,7 +1099,7 @@ export default function FlipbookViewer() {
           {/* Host element where PageFlip creates and manages pages */}
           <div 
             ref={bookHostRef} 
-            className="w-full h-full flex items-center justify-center select-none"
+            className="w-full h-full flex items-center justify-center select-none touch-none"
             style={{
               pointerEvents: displayZoom > 1.05 ? 'none' : 'auto'
             }}
