@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
+import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 
 declare global {
   interface Window {
@@ -515,8 +516,15 @@ export default function FlipbookMaker() {
                   <div className="flex gap-2">
                     <Input
                       value={audioUrl}
-                      onChange={(e) => setAudioUrl(e.target.value)}
-                      placeholder="Pega enlace de audio .mp3 o sube un archivo..."
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const formatted = formatAudioStreamUrl(raw);
+                        setAudioUrl(formatted);
+                        if (formatted !== raw && raw.includes('drive.google.com')) {
+                          toast.success("Enlace de Google Drive transformado para streaming directo");
+                        }
+                      }}
+                      placeholder="Pega enlace de Google Drive, Dropbox o URL directa .mp3..."
                       className="h-11 rounded-xl border-slate-200 text-xs flex-1"
                     />
                     <label className="h-11 px-4 rounded-xl bg-slate-900 hover:bg-[#00AEEF] text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors shrink-0">
@@ -541,13 +549,17 @@ export default function FlipbookMaker() {
                     </label>
                   </div>
 
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                    Tip: Si usas <strong>Google Drive</strong>, comparte el archivo como <em>&quot;Cualquier persona con el enlace&quot;</em> y pega aquí el link copiado. Se convertirá automáticamente a streaming directo.
+                  </p>
+
                   {/* Audio Player Preview */}
                   {audioUrl && (
                     <div className="pt-2">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Escuchar audio configurado:
                       </p>
-                      <audio controls src={audioUrl} className="w-full h-10 rounded-lg" />
+                      <audio controls src={formatAudioStreamUrl(audioUrl)} className="w-full h-10 rounded-lg" />
                     </div>
                   )}
                 </div>

@@ -31,6 +31,7 @@ import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { dataCache } from '@/lib/dataCache';
 import { pageSound } from '@/lib/pageSound';
+import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 // Import PageFlip from page-flip library
 import { PageFlip } from 'page-flip';
 
@@ -1018,7 +1019,7 @@ export default function FlipbookViewer() {
       {flipbook.audioUrl && (
         <audio
           ref={audioRef}
-          src={flipbook.audioUrl}
+          src={formatAudioStreamUrl(flipbook.audioUrl)}
           loop
           preload="auto"
           onPlay={() => setAudioPlaying(true)}

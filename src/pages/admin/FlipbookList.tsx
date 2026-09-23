@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 
 interface Flipbook {
   id: string;
@@ -523,8 +524,15 @@ export default function FlipbookList() {
                       <div className="flex gap-2">
                         <Input
                           value={editAudioUrl}
-                          onChange={(e) => setEditAudioUrl(e.target.value)}
-                          placeholder="Pega enlace de audio .mp3 o sube un archivo..."
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const formatted = formatAudioStreamUrl(raw);
+                            setEditAudioUrl(formatted);
+                            if (formatted !== raw && raw.includes('drive.google.com')) {
+                              toast.success("Enlace de Google Drive transformado para streaming directo");
+                            }
+                          }}
+                          placeholder="Pega enlace de Google Drive, Dropbox o URL directa .mp3..."
                           className="h-11 rounded-xl border-slate-200 text-xs flex-1"
                         />
                         <label className="h-11 px-4 rounded-xl bg-slate-900 hover:bg-[#00AEEF] text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors shrink-0">
@@ -549,13 +557,17 @@ export default function FlipbookList() {
                         </label>
                       </div>
 
+                      <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                        Tip: Si usas <strong>Google Drive</strong>, comparte el archivo como <em>&quot;Cualquier persona con el enlace&quot;</em> y pega aquí el link copiado. Se convertirá automáticamente a streaming directo.
+                      </p>
+
                       {/* Audio Player Preview */}
                       {editAudioUrl && (
                         <div className="pt-2">
                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                             Escuchar audio configurado:
                           </p>
-                          <audio controls src={editAudioUrl} className="w-full h-10 rounded-lg" />
+                          <audio controls src={formatAudioStreamUrl(editAudioUrl)} className="w-full h-10 rounded-lg" />
                         </div>
                       )}
                     </div>
