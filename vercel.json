@@ -7,7 +7,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
+          "value": ".*(facebookexternalhit|Facebook|Facebot|WhatsApp|whatsapp|Twitterbot|twitterbot|TelegramBot|telegram|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
         }
       ],
       "destination": "/api/magazine-ssr?slugOrId=$1"
@@ -18,7 +18,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "(?i).*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
+          "value": ".*(facebookexternalhit|Facebook|Facebot|WhatsApp|whatsapp|Twitterbot|twitterbot|TelegramBot|telegram|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
         }
       ],
       "destination": "/api/article-ssr?slug=$1"
