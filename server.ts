@@ -864,11 +864,10 @@ async function startServer() {
 `;
 
       let output = html;
-      // Replace existing title if any
-      if (output.includes("<title>")) {
-        output = output.replace(/<title>[^<]*<\/title>/, "");
-      }
-      // Insert right before </head>
+      output = output.replace(/<title>[^<]*<\/title>/gi, '');
+      output = output.replace(/<meta\s+name=["']description["'][^>]*>/gi, '');
+      output = output.replace(/<meta\s+property=["']og:[^"']+["'][^>]*>/gi, '');
+      output = output.replace(/<meta\s+name=["']twitter:[^"']+["'][^>]*>/gi, '');
       output = output.replace("</head>", `${tags}</head>`);
       return output;
     };
@@ -975,11 +974,10 @@ async function startServer() {
 `;
 
       let output = html;
-      // Replace existing title if any
-      if (output.includes("<title>")) {
-        output = output.replace(/<title>[^<]*<\/title>/, "");
-      }
-      // Insert right before </head>
+      output = output.replace(/<title>[^<]*<\/title>/gi, '');
+      output = output.replace(/<meta\s+name=["']description["'][^>]*>/gi, '');
+      output = output.replace(/<meta\s+property=["']og:[^"']+["'][^>]*>/gi, '');
+      output = output.replace(/<meta\s+name=["']twitter:[^"']+["'][^>]*>/gi, '');
       output = output.replace("</head>", `${tags}</head>`);
       return output;
     };
