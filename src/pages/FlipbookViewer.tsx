@@ -815,28 +815,7 @@ export default function FlipbookViewer() {
       const cur = pageFlipInstanceRef.current.getCurrentPageIndex();
       if (cur >= totalPages - 1) return;
 
-      const isPortrait = pageFlipInstanceRef.current.getOrientation() === 'portrait';
-      const step = isPortrait ? 1 : (cur === 0 ? 1 : 2);
-      const target = Math.min(totalPages - 1, cur + step);
-
-      try {
-        pageFlipInstanceRef.current.flipNext();
-      } catch (e) {
-        console.warn("flipNext error:", e);
-      }
-
-      // Safety fallback: if page hasn't turned after a moment, force turn to target
-      setTimeout(() => {
-        if (pageFlipInstanceRef.current && pageFlipInstanceRef.current.getCurrentPageIndex() === cur) {
-          try {
-            pageFlipInstanceRef.current.flip(target);
-          } catch {
-            try {
-              pageFlipInstanceRef.current.turnToPage(target);
-            } catch {}
-          }
-        }
-      }, 70);
+      pageFlipInstanceRef.current.flipNext();
     } catch (e) {
       console.warn("handleNext error:", e);
     }
@@ -848,29 +827,7 @@ export default function FlipbookViewer() {
       const cur = pageFlipInstanceRef.current.getCurrentPageIndex();
       if (cur <= 0) return;
 
-      const isPortrait = pageFlipInstanceRef.current.getOrientation() === 'portrait';
-      const step = isPortrait ? 1 : (cur === 1 ? 1 : 2);
-      const target = Math.max(0, cur - step);
-
-      // Execute animated flip
-      try {
-        pageFlipInstanceRef.current.flipPrev();
-      } catch (e) {
-        console.warn("flipPrev error:", e);
-      }
-
-      // Safety fallback: if page hasn't turned after a moment, force turn to target
-      setTimeout(() => {
-        if (pageFlipInstanceRef.current && pageFlipInstanceRef.current.getCurrentPageIndex() === cur) {
-          try {
-            pageFlipInstanceRef.current.flip(target);
-          } catch {
-            try {
-              pageFlipInstanceRef.current.turnToPage(target);
-            } catch {}
-          }
-        }
-      }, 70);
+      pageFlipInstanceRef.current.flipPrev();
     } catch (e) {
       console.warn("handlePrev error:", e);
     }
