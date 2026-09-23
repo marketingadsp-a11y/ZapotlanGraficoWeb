@@ -26,13 +26,22 @@ import {
   VolumeX,
   CheckCircle,
   Save,
-  Clock
+  Clock,
+  Tag,
+  Leaf,
+  Utensils,
+  Cpu,
+  Heart,
+  Newspaper,
+  Compass,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
+import { MAGAZINE_CATEGORIES } from './FlipbookMaker';
 
 interface Flipbook {
   id: string;
@@ -47,6 +56,7 @@ interface Flipbook {
   autoPlayInterval?: number;
   audioUrl?: string;
   autoPlayAudio?: boolean;
+  category?: string;
 }
 
 export default function FlipbookList() {
@@ -58,6 +68,8 @@ export default function FlipbookList() {
   const [editingFlipbook, setEditingFlipbook] = useState<Flipbook | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('Cultura');
+  const [editCustomCategory, setEditCustomCategory] = useState('');
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [editAutoPlayDefault, setEditAutoPlayDefault] = useState(false);
   const [editAutoPlayInterval, setEditAutoPlayInterval] = useState(5);
@@ -101,6 +113,15 @@ export default function FlipbookList() {
     setEditingFlipbook(fb);
     setEditTitle(fb.title || '');
     setEditDescription(fb.description || '');
+    const cat = fb.category || 'Cultura';
+    const isKnown = MAGAZINE_CATEGORIES.some(c => c.name.toLowerCase() === cat.toLowerCase());
+    if (isKnown) {
+      setEditCategory(cat);
+      setEditCustomCategory('');
+    } else {
+      setEditCategory('Otro');
+      setEditCustomCategory(cat);
+    }
     setEditCoverUrl(fb.coverUrl || '');
     setEditAutoPlayDefault(fb.autoPlayDefault || false);
     setEditAutoPlayInterval(fb.autoPlayInterval || 5);
@@ -170,10 +191,12 @@ export default function FlipbookList() {
 
     setSavingEdit(true);
     try {
+      const finalCategory = (editCategory === 'Otro' ? editCustomCategory : editCategory).trim() || 'Cultura';
       const docRef = doc(db, 'flipbooks', editingFlipbook.id);
       await updateDoc(docRef, {
         title: editTitle.trim(),
         description: editDescription.trim(),
+        category: finalCategory,
         coverUrl: editCoverUrl.trim(),
         autoPlayDefault: editAutoPlayDefault,
         autoPlayInterval: Number(editAutoPlayInterval) || 5,
@@ -308,12 +331,17 @@ export default function FlipbookList() {
                     {/* Meta description body */}
                     <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#00AEEF]">
-                          <Calendar className="h-3 w-3" />
-                          <span>
-                            {fb.createdAt 
-                              ? format(fb.createdAt.toDate(), "d 'de' MMMM, yyyy", { locale: es }) 
-                              : "N/A"}
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest gap-2">
+                          <div className="flex items-center gap-2 text-[#00AEEF]">
+                            <Calendar className="h-3 w-3" />
+                            <span>
+                              {fb.createdAt 
+                                ? format(fb.createdAt.toDate(), "d 'de' MMMM, yyyy", { locale: es }) 
+                                : "N/A"}
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[9px] border border-slate-200">
+                            {fb.category || 'Cultura'}
                           </span>
                         </div>
                         <h2 className="text-base font-black text-slate-800 tracking-tight leading-snug line-clamp-2">
@@ -411,6 +439,67 @@ export default function FlipbookList() {
                       className="h-12 rounded-xl border-slate-200"
                       required
                     />
+                  </div>
+
+                  {/* Categoría Editorial */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <Tag className="h-3 w-3 text-[#00AEEF]" />
+                        Categoría (Escaparate Público)
+                      </label>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {editCategory === 'Otro' ? (editCustomCategory || 'Personalizada') : editCategory}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {MAGAZINE_CATEGORIES.map((cat) => {
+                        const CatIcon = cat.icon;
+                        const isSelected = editCategory === cat.name;
+                        return (
+                          <button
+                            key={cat.name}
+                            type="button"
+                            onClick={() => {
+                              setEditCategory(cat.name);
+                              setEditCustomCategory('');
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                              isSelected 
+                                ? cat.activeBg + ' border-transparent shadow-md' 
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/70'
+                            }`}
+                          >
+                            <CatIcon className={`h-3 w-3 ${isSelected ? 'text-white' : cat.color}`} />
+                            <span>{cat.name}</span>
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => setEditCategory('Otro')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                          editCategory === 'Otro'
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/70'
+                        }`}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span>Otra</span>
+                      </button>
+                    </div>
+
+                    {editCategory === 'Otro' && (
+                      <Input
+                        value={editCustomCategory}
+                        onChange={(e) => setEditCustomCategory(e.target.value)}
+                        placeholder="Escribe la categoría personalizada..."
+                        className="h-10 rounded-xl border-slate-200 text-xs font-bold mt-1"
+                        autoFocus
+                      />
+                    )}
                   </div>
 
                   {/* Description */}

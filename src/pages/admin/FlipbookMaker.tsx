@@ -24,11 +24,28 @@ import {
   Image as ImageIcon,
   Play,
   Music,
-  Clock
+  Clock,
+  Tag,
+  Leaf,
+  Utensils,
+  Cpu,
+  Heart,
+  Newspaper,
+  Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
+
+export const MAGAZINE_CATEGORIES = [
+  { name: 'Cultura', icon: Leaf, color: 'text-emerald-600', activeBg: 'bg-emerald-500 text-white shadow-emerald-500/25', border: 'border-emerald-200' },
+  { name: 'Gastronomía', icon: Utensils, color: 'text-amber-600', activeBg: 'bg-amber-500 text-white shadow-amber-500/25', border: 'border-amber-200' },
+  { name: 'Tecnología', icon: Cpu, color: 'text-blue-600', activeBg: 'bg-blue-600 text-white shadow-blue-500/25', border: 'border-blue-200' },
+  { name: 'Salud y Bienestar', icon: Heart, color: 'text-rose-500', activeBg: 'bg-rose-500 text-white shadow-rose-500/25', border: 'border-rose-200' },
+  { name: 'Actualidad', icon: Newspaper, color: 'text-sky-600', activeBg: 'bg-sky-500 text-white shadow-sky-500/25', border: 'border-sky-200' },
+  { name: 'Viajes', icon: Compass, color: 'text-cyan-600', activeBg: 'bg-cyan-600 text-white shadow-cyan-500/25', border: 'border-cyan-200' },
+  { name: 'Naturaleza', icon: Leaf, color: 'text-green-600', activeBg: 'bg-green-600 text-white shadow-green-500/25', border: 'border-green-200' },
+];
 
 declare global {
   interface Window {
@@ -46,6 +63,8 @@ export default function FlipbookMaker() {
   // Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Cultura');
+  const [customCategory, setCustomCategory] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
   const [autoPlayDefault, setAutoPlayDefault] = useState(false);
@@ -314,9 +333,12 @@ export default function FlipbookMaker() {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/(^-|-$)+/g, '');
 
+          const finalCategory = (category === 'Otro' ? customCategory : category).trim() || 'Cultura';
+
           const newFlipbookDoc = {
             title: title.trim(),
             description: description.trim(),
+            category: finalCategory,
             coverUrl: coverUrl || currentCoverUrl,
             pageUrls: pageUrlsList,
             slug: publicationSlug + '-' + Math.floor(Math.random() * 1000),
@@ -409,6 +431,75 @@ export default function FlipbookMaker() {
                   className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs font-bold font-sans transition-colors"
                   disabled={processing}
                 />
+              </div>
+
+              {/* Categoría Editorial */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pl-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                    <Tag className="h-3 w-3 text-[#00AEEF]" />
+                    Categoría de la Revista (Escaparate Público)
+                  </label>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    Seleccionada: <strong className="text-slate-900">{category === 'Otro' ? (customCategory || 'Personalizada') : category}</strong>
+                  </span>
+                </div>
+
+                {/* Chips de categorías temáticas */}
+                <div className="flex flex-wrap gap-2">
+                  {MAGAZINE_CATEGORIES.map((cat) => {
+                    const CatIcon = cat.icon;
+                    const isSelected = category === cat.name;
+                    return (
+                      <button
+                        key={cat.name}
+                        type="button"
+                        onClick={() => {
+                          setCategory(cat.name);
+                          setCustomCategory('');
+                        }}
+                        disabled={processing}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                          isSelected 
+                            ? cat.activeBg + ' border-transparent shadow-md' 
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/70'
+                        }`}
+                      >
+                        <CatIcon className={`h-3.5 w-3.5 ${isSelected ? 'text-white' : cat.color}`} />
+                        <span>{cat.name}</span>
+                      </button>
+                    );
+                  })}
+
+                  {/* Opción Otro / Personalizada */}
+                  <button
+                    type="button"
+                    onClick={() => setCategory('Otro')}
+                    disabled={processing}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                      category === 'Otro'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/70'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Otra categoría</span>
+                  </button>
+                </div>
+
+                {/* Input si seleccionó 'Otro' */}
+                {category === 'Otro' && (
+                  <div className="pt-1">
+                    <Input
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="Escribe el nombre de tu categoría personalizada..."
+                      className="h-12 rounded-xl border-slate-200 bg-white text-xs font-bold"
+                      disabled={processing}
+                      autoFocus
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
