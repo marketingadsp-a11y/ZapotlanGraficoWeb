@@ -69,10 +69,13 @@ export default function FlipbookViewer() {
   const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(false);
   const [showThumbnails, setShowThumbnails] = useState(false);
   const [isMuted, setIsMuted] = useState(pageSound.getMuted());
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  // Direct GPU Zoom & Pan Engine state
+  const [displayZoom, setDisplayZoom] = useState(1);
+  const currentScaleRef = useRef(1);
+  const currentPanRef = useRef({ x: 0, y: 0 });
+  const zoomWrapperRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingMouseRef = useRef(false);
 
   // Background Audio state
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -210,28 +213,35 @@ export default function FlipbookViewer() {
     };
   }, [flipbook?.audioUrl, flipbook?.autoPlayAudio]);
 
-  const [isInteracting, setIsInteracting] = useState(false);
+  // Direct GPU Transform Zoom & Pan Engine (Zero React re-render bottleneck on touchmove)
+  const applyTransform = useCallback((scale: number, panX: number, panY: number, animate = false) => {
+    currentScaleRef.current = scale;
+    currentPanRef.current = { x: panX, y: panY };
+    if (zoomWrapperRef.current) {
+      zoomWrapperRef.current.style.transition = animate 
+        ? 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)' 
+        : 'none';
+      zoomWrapperRef.current.style.transform = `translate3d(${panX}px, ${panY}px, 0px) scale(${scale})`;
+    }
+  }, []);
 
-  // Zoom handlers
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3.5));
+  const handleZoomIn = () => {
+    const next = Math.min(currentScaleRef.current + 0.5, 6.0);
+    applyTransform(next, currentPanRef.current.x, currentPanRef.current.y, true);
+    setDisplayZoom(next);
+  };
+
   const handleZoomOut = () => {
-    setZoomLevel(prev => {
-      const next = Math.max(prev - 0.25, 1);
-      if (next === 1) setPanOffset({ x: 0, y: 0 });
-      return next;
-    });
+    const next = Math.max(currentScaleRef.current - 0.5, 1.0);
+    const nextPan = next <= 1.05 ? { x: 0, y: 0 } : currentPanRef.current;
+    applyTransform(next, nextPan.x, nextPan.y, true);
+    setDisplayZoom(next);
   };
+
   const handleResetZoom = () => {
-    setZoomLevel(1);
-    setPanOffset({ x: 0, y: 0 });
+    applyTransform(1.0, 0, 0, true);
+    setDisplayZoom(1.0);
   };
-
-  // Zoom & Pan refs for synchronous access in touch/wheel handlers
-  const zoomLevelRef = useRef(zoomLevel);
-  zoomLevelRef.current = zoomLevel;
-
-  const panOffsetRef = useRef(panOffset);
-  panOffsetRef.current = panOffset;
 
   // Touch gesture state ref for fluid pinch-to-zoom, double-tap & pan
   const touchGestureRef = useRef<{
@@ -273,10 +283,9 @@ export default function FlipbookViewer() {
 
         touchGestureRef.current.mode = 'pinch';
         touchGestureRef.current.initialDist = Math.max(dist, 10);
-        touchGestureRef.current.initialZoom = zoomLevelRef.current;
+        touchGestureRef.current.initialZoom = currentScaleRef.current;
         touchGestureRef.current.initialCenter = { x: centerX, y: centerY };
-        touchGestureRef.current.initialPan = { ...panOffsetRef.current };
-        setIsInteracting(true);
+        touchGestureRef.current.initialPan = { ...currentPanRef.current };
 
         e.preventDefault();
         e.stopPropagation();
@@ -293,20 +302,16 @@ export default function FlipbookViewer() {
         // Double tap detection (< 300ms, < 25px displacement)
         if (now - lastTapTime < 300 && distFromPrev < 25) {
           touchGestureRef.current.lastTapTime = 0;
-          if (zoomLevelRef.current > 1.05) {
-            setZoomLevel(1);
-            setPanOffset({ x: 0, y: 0 });
-            toast.info("Tamaño normal", { duration: 1000 });
+          if (currentScaleRef.current > 1.1) {
+            handleResetZoom();
           } else {
-            setZoomLevel(2.2);
             const rect = stage.getBoundingClientRect();
             const tapOffsetX = t.clientX - (rect.left + rect.width / 2);
             const tapOffsetY = t.clientY - (rect.top + rect.height / 2);
-            setPanOffset({
-              x: Math.max(-280, Math.min(280, -tapOffsetX * 1.1)),
-              y: Math.max(-320, Math.min(320, -tapOffsetY * 1.1)),
-            });
-            toast.success("Zoom 2.2x", { duration: 1000 });
+            const targetPanX = Math.max(-280, Math.min(280, -tapOffsetX * 1.2));
+            const targetPanY = Math.max(-320, Math.min(320, -tapOffsetY * 1.2));
+            applyTransform(2.5, targetPanX, targetPanY, true);
+            setDisplayZoom(2.5);
           }
           e.preventDefault();
           e.stopPropagation();
@@ -317,11 +322,10 @@ export default function FlipbookViewer() {
         touchGestureRef.current.lastTapPos = { x: t.clientX, y: t.clientY };
 
         // When already zoomed in (>1.05), 1 finger is used for PANNING/READING
-        if (zoomLevelRef.current > 1.05) {
+        if (currentScaleRef.current > 1.05) {
           touchGestureRef.current.mode = 'pan';
           touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
-          touchGestureRef.current.startPan = { ...panOffsetRef.current };
-          setIsInteracting(true);
+          touchGestureRef.current.startPan = { ...currentPanRef.current };
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -344,8 +348,8 @@ export default function FlipbookViewer() {
         if (touchGestureRef.current.initialDist > 5) {
           const ratio = dist / touchGestureRef.current.initialDist;
           let nextZoom = touchGestureRef.current.initialZoom * ratio;
-          nextZoom = Math.min(Math.max(nextZoom, 0.95), 4.0);
-          setZoomLevel(nextZoom);
+          // Unrestricted zoom: up to 6.0x!
+          nextZoom = Math.min(Math.max(nextZoom, 0.9), 6.5);
 
           const rect = stage.getBoundingClientRect();
           const currentCenterX = (t1.clientX + t2.clientX) / 2 - (rect.left + rect.width / 2);
@@ -358,21 +362,23 @@ export default function FlipbookViewer() {
           const nextPanY = touchGestureRef.current.initialPan.y + diffY;
 
           if (nextZoom <= 1.02) {
-            setPanOffset({ x: 0, y: 0 });
+            applyTransform(nextZoom, 0, 0, false);
           } else {
-            const maxBoundX = Math.max(0, (stage.clientWidth * nextZoom - stage.clientWidth) / 2 + 60);
-            const maxBoundY = Math.max(0, (stage.clientHeight * nextZoom - stage.clientHeight) / 2 + 80);
-            setPanOffset({
-              x: Math.max(-maxBoundX, Math.min(maxBoundX, nextPanX)),
-              y: Math.max(-maxBoundY, Math.min(maxBoundY, nextPanY)),
-            });
+            const maxBoundX = Math.max(0, (stage.clientWidth * nextZoom - stage.clientWidth) / 2 + 80);
+            const maxBoundY = Math.max(0, (stage.clientHeight * nextZoom - stage.clientHeight) / 2 + 100);
+            applyTransform(
+              nextZoom,
+              Math.max(-maxBoundX, Math.min(maxBoundX, nextPanX)),
+              Math.max(-maxBoundY, Math.min(maxBoundY, nextPanY)),
+              false
+            );
           }
         }
         return;
       }
 
       // Handle Pan when zoomed with 1 finger
-      if (e.touches.length === 1 && (touchGestureRef.current.mode === 'pan' || zoomLevelRef.current > 1.05)) {
+      if (e.touches.length === 1 && (touchGestureRef.current.mode === 'pan' || currentScaleRef.current > 1.05)) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -380,39 +386,41 @@ export default function FlipbookViewer() {
         const dx = t.clientX - touchGestureRef.current.startTouch.x;
         const dy = t.clientY - touchGestureRef.current.startTouch.y;
 
-        const maxBoundX = Math.max(0, (stage.clientWidth * zoomLevelRef.current - stage.clientWidth) / 2 + 60);
-        const maxBoundY = Math.max(0, (stage.clientHeight * zoomLevelRef.current - stage.clientHeight) / 2 + 80);
+        const maxBoundX = Math.max(0, (stage.clientWidth * currentScaleRef.current - stage.clientWidth) / 2 + 80);
+        const maxBoundY = Math.max(0, (stage.clientHeight * currentScaleRef.current - stage.clientHeight) / 2 + 100);
 
         const newX = Math.max(-maxBoundX, Math.min(maxBoundX, touchGestureRef.current.startPan.x + dx));
         const newY = Math.max(-maxBoundY, Math.min(maxBoundY, touchGestureRef.current.startPan.y + dy));
 
-        setPanOffset({ x: newX, y: newY });
+        applyTransform(currentScaleRef.current, newX, newY, false);
         return;
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
-        setIsInteracting(false);
         touchGestureRef.current.mode = 'none';
 
-        if (zoomLevelRef.current < 1.08) {
-          setZoomLevel(1);
-          setPanOffset({ x: 0, y: 0 });
-        } else if (zoomLevelRef.current > 3.5) {
-          setZoomLevel(3.5);
+        if (currentScaleRef.current < 1.08) {
+          applyTransform(1.0, 0, 0, true);
+          setDisplayZoom(1.0);
+        } else if (currentScaleRef.current > 6.0) {
+          applyTransform(6.0, currentPanRef.current.x, currentPanRef.current.y, true);
+          setDisplayZoom(6.0);
+        } else {
+          setDisplayZoom(currentScaleRef.current);
         }
       } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pinch') {
-        if (zoomLevelRef.current > 1.05) {
+        if (currentScaleRef.current > 1.05) {
           touchGestureRef.current.mode = 'pan';
           const t = e.touches[0];
           touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
-          touchGestureRef.current.startPan = { ...panOffsetRef.current };
+          touchGestureRef.current.startPan = { ...currentPanRef.current };
+          setDisplayZoom(currentScaleRef.current);
         } else {
           touchGestureRef.current.mode = 'none';
-          setZoomLevel(1);
-          setPanOffset({ x: 0, y: 0 });
-          setIsInteracting(false);
+          applyTransform(1.0, 0, 0, true);
+          setDisplayZoom(1.0);
         }
       }
     };
@@ -422,15 +430,13 @@ export default function FlipbookViewer() {
       if (e.ctrlKey) {
         if (e.cancelable) e.preventDefault();
         const delta = -e.deltaY * 0.01;
-        setZoomLevel(prev => {
-          const next = Math.min(Math.max(prev + delta, 1), 3.5);
-          if (next <= 1.02) setPanOffset({ x: 0, y: 0 });
-          return next;
-        });
+        const next = Math.min(Math.max(currentScaleRef.current + delta, 1), 6.0);
+        const nextPan = next <= 1.02 ? { x: 0, y: 0 } : currentPanRef.current;
+        applyTransform(next, nextPan.x, nextPan.y, false);
+        setDisplayZoom(next);
       }
     };
 
-    // Register with capture: true so we intercept 2-finger touches BEFORE PageFlip
     stage.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false });
     window.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
     window.addEventListener('touchend', handleTouchEnd, { capture: true, passive: false });
@@ -444,30 +450,34 @@ export default function FlipbookViewer() {
       window.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
       stage.removeEventListener('wheel', handleWheel);
     };
-  }, []);
+  }, [applyTransform]);
 
   // Desktop Mouse Pan controls when zoomed in
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === 'touch') return; // Handled by native touch listeners
-    if (zoomLevel <= 1) return;
-    setIsPanning(true);
-    setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    if (e.pointerType === 'touch') return;
+    if (currentScaleRef.current <= 1.05) return;
+    isDraggingMouseRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX - currentPanRef.current.x,
+      y: e.clientY - currentPanRef.current.y,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
-    if (!isPanning || zoomLevel <= 1) return;
-    const maxBoundX = (zoomLevel - 1) * 450;
-    const maxBoundY = (zoomLevel - 1) * 350;
-    const newX = Math.max(-maxBoundX, Math.min(maxBoundX, e.clientX - dragStart.x));
-    const newY = Math.max(-maxBoundY, Math.min(maxBoundY, e.clientY - dragStart.y));
-    setPanOffset({ x: newX, y: newY });
+    if (!isDraggingMouseRef.current || currentScaleRef.current <= 1.05) return;
+    const stage = stageContainerRef.current;
+    const maxBoundX = stage ? Math.max(0, (stage.clientWidth * currentScaleRef.current - stage.clientWidth) / 2 + 80) : 600;
+    const maxBoundY = stage ? Math.max(0, (stage.clientHeight * currentScaleRef.current - stage.clientHeight) / 2 + 100) : 600;
+    const newX = Math.max(-maxBoundX, Math.min(maxBoundX, e.clientX - dragStartRef.current.x));
+    const newY = Math.max(-maxBoundY, Math.min(maxBoundY, e.clientY - dragStartRef.current.y));
+    applyTransform(currentScaleRef.current, newX, newY, false);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return;
-    setIsPanning(false);
+    isDraggingMouseRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
@@ -618,29 +628,30 @@ export default function FlipbookViewer() {
             ctx.rect(leftX, leftY, pW, pH);
             ctx.clip();
 
-            // Deep elegant editorial slate background
+            // Crisp elegant editorial white/ivory cardstock background
             const bgGrad = ctx.createLinearGradient(leftX, leftY, leftX + pW, leftY + pH);
-            bgGrad.addColorStop(0, '#0b132b');
-            bgGrad.addColorStop(1, '#020617');
+            bgGrad.addColorStop(0, '#ffffff');
+            bgGrad.addColorStop(0.6, '#f8fafc');
+            bgGrad.addColorStop(1, '#f1f5f9');
             ctx.fillStyle = bgGrad;
             ctx.fillRect(leftX, leftY, pW, pH);
 
             // Subtle brand radial glow (#00AEEF)
             const glowGrad = ctx.createRadialGradient(
               leftX + pW / 2, leftY + pH / 2, 5,
-              leftX + pW / 2, leftY + pH / 2, pW * 0.65
+              leftX + pW / 2, leftY + pH / 2, pW * 0.7
             );
-            glowGrad.addColorStop(0, 'rgba(0, 174, 239, 0.12)');
+            glowGrad.addColorStop(0, 'rgba(0, 174, 239, 0.08)');
             glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = glowGrad;
             ctx.fillRect(leftX, leftY, pW, pH);
 
             // Spine shadow overlay on the right edge
-            const spineShadow = ctx.createLinearGradient(leftX + pW - 24, 0, leftX + pW, 0);
+            const spineShadow = ctx.createLinearGradient(leftX + pW - 28, 0, leftX + pW, 0);
             spineShadow.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            spineShadow.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+            spineShadow.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
             ctx.fillStyle = spineShadow;
-            ctx.fillRect(leftX + pW - 24, leftY, 24, pH);
+            ctx.fillRect(leftX + pW - 28, leftY, 28, pH);
 
             // Draw brand logo or fallback styled typography
             if (logoImg.complete && logoImg.naturalWidth > 0) {
@@ -661,7 +672,7 @@ export default function FlipbookViewer() {
               ctx.font = `900 ${Math.max(16, Math.floor(pW * 0.085))}px sans-serif`;
               ctx.fillText("ZAPOTLÁN", leftX + pW / 2, leftY + pH / 2 - 16);
 
-              ctx.fillStyle = '#FFFFFF';
+              ctx.fillStyle = '#0f172a';
               ctx.font = `900 ${Math.max(16, Math.floor(pW * 0.085))}px sans-serif`;
               ctx.fillText("GRÁFICO", leftX + pW / 2, leftY + pH / 2 + 16);
             }
@@ -669,7 +680,7 @@ export default function FlipbookViewer() {
             // Footer editorial badge
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
-            ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+            ctx.fillStyle = '#94a3b8';
             ctx.font = `800 ${Math.max(8, Math.floor(pW * 0.03))}px sans-serif`;
             ctx.fillText("EDICIÓN DIGITAL IMPRESA", leftX + pW / 2, leftY + pH - 28);
 
@@ -880,13 +891,13 @@ export default function FlipbookViewer() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white gap-4">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f8fafc] text-slate-800 gap-4">
         <div className="relative">
-          <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent" />
-          <Sparkles className="h-6 w-6 text-[#FFF200] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+          <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent shadow-xs" />
+          <Sparkles className="h-6 w-6 text-[#00AEEF] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
         </div>
-        <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-          Abriendo revista interactiva...
+        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+          Abriendo revista digital...
         </p>
       </div>
     );
@@ -895,30 +906,30 @@ export default function FlipbookViewer() {
   if (!flipbook) return null;
 
   return (
-    <div className={`fixed inset-0 h-[100dvh] w-screen bg-[#090b10] flex flex-col text-white select-none overflow-hidden touch-none ${
+    <div className={`fixed inset-0 h-[100dvh] w-screen bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] flex flex-col text-slate-800 select-none overflow-hidden touch-none ${
       isFullscreen ? "z-50" : "z-30"
     }`}>
       
       {/* Ambient background lighting aura */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00AEEF]/5 rounded-full blur-[180px] pointer-events-none" />
-      <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#FFF200]/3 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00AEEF]/8 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#FFF200]/12 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Top Header Controls (Heyzine Style) */}
-      <header className="h-14 shrink-0 z-30 bg-slate-950/70 backdrop-blur-xl px-4 flex items-center justify-between border-b border-white/5">
+      {/* Top Header Controls (Light Editorial Modern) */}
+      <header className="h-14 shrink-0 z-30 bg-white/80 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
         <div className="flex items-center gap-3">
           <Link 
             to="/revista"
-            className="flex h-9 items-center justify-center rounded-xl bg-white/5 hover:bg-[#ED1C24] transition-all px-3 group gap-2"
+            className="flex h-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3 group gap-2 border border-slate-200/60"
             title="Cerrar Revista"
           >
-            <X className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
-            <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest text-slate-300 group-hover:text-white">
+            <X className="h-4 w-4 text-slate-600 group-hover:text-white transition-colors" />
+            <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">
               Cerrar
             </span>
           </Link>
 
           <div className="hidden md:block max-w-sm lg:max-w-md">
-            <h1 className="text-xs font-black tracking-tight uppercase truncate text-slate-200">
+            <h1 className="text-xs font-black tracking-tight uppercase truncate text-slate-900">
               {flipbook.title}
             </h1>
             <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#00AEEF]">
@@ -938,12 +949,12 @@ export default function FlipbookViewer() {
             <img 
               src={settings.logoUrl} 
               alt="Logo" 
-              className="h-5 md:h-6 max-w-[120px] object-contain brightness-0 invert opacity-80" 
+              className="h-6 md:h-7 max-w-[140px] object-contain drop-shadow-xs" 
               referrerPolicy="no-referrer"
             />
           ) : (
-            <span className="text-[10px] font-black tracking-tighter uppercase text-[#00AEEF]">
-              ZAPOTLÁN <span className="text-white">GRÁFICO</span>
+            <span className="text-[11px] font-black tracking-tighter uppercase text-[#00AEEF]">
+              ZAPOTLÁN <span className="text-slate-900">GRÁFICO</span>
             </span>
           )}
         </div>
@@ -955,14 +966,14 @@ export default function FlipbookViewer() {
             <Button
               variant="ghost"
               onClick={handleToggleMusic}
-              className={`h-9 px-2.5 gap-1.5 rounded-xl transition-all ${
+              className={`h-9 px-2.5 gap-1.5 rounded-xl transition-all border ${
                 audioPlaying 
-                  ? "bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20" 
-                  : "bg-white/5 text-slate-300 hover:text-white hover:bg-white/10"
+                  ? "bg-[#00AEEF] text-white border-[#00AEEF] shadow-xs shadow-[#00AEEF]/30" 
+                  : "bg-slate-100/80 text-slate-700 hover:text-slate-900 hover:bg-slate-200/90 border-slate-200/70"
               }`}
               title={audioPlaying ? "Pausar música de fondo" : "Reproducir música de fondo"}
             >
-              <Music className={`h-4 w-4 ${audioPlaying ? "animate-pulse text-white" : "text-slate-400"}`} />
+              <Music className={`h-4 w-4 ${audioPlaying ? "animate-pulse text-white" : "text-slate-600"}`} />
               <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
                 {audioPlaying ? "Música" : "Audio"}
               </span>
@@ -973,8 +984,8 @@ export default function FlipbookViewer() {
           <Button
             variant="ghost"
             onClick={handleToggleSound}
-            className={`h-9 w-9 p-0 rounded-xl transition-colors ${
-              !isMuted ? "bg-white/10 text-[#00AEEF]" : "bg-white/5 text-slate-400 hover:text-white"
+            className={`h-9 w-9 p-0 rounded-xl transition-colors border ${
+              !isMuted ? "bg-[#00AEEF]/10 text-[#00AEEF] border-[#00AEEF]/30" : "bg-slate-100/80 text-slate-600 hover:text-slate-900 border-slate-200/70"
             }`}
             title={isMuted ? "Activar sonido de hojeado" : "Silenciar sonido de hojeado"}
           >
@@ -985,7 +996,7 @@ export default function FlipbookViewer() {
           <Button
             variant="ghost"
             onClick={handleShareUrl}
-            className="h-9 w-9 p-0 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+            className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
             title="Compartir Edición"
           >
             <Share2 className="h-4 w-4" />
@@ -995,7 +1006,7 @@ export default function FlipbookViewer() {
           <Button
             variant="ghost"
             onClick={toggleFullscreen}
-            className="h-9 w-9 p-0 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+            className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
             title="Pantalla Completa"
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -1012,19 +1023,19 @@ export default function FlipbookViewer() {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{
-          cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default'
+          cursor: displayZoom > 1.05 ? (isDraggingMouseRef.current ? 'grabbing' : 'grab') : 'default'
         }}
       >
         {/* Floating Zoom Indicator & Quick Reset on Mobile / Zoomed state */}
-        {zoomLevel > 1 && (
-          <div className="absolute top-3 sm:top-4 z-30 flex items-center gap-2 bg-slate-950/90 backdrop-blur-xl border border-[#00AEEF]/50 px-3.5 py-1.5 rounded-full shadow-2xl shadow-cyan-950/50">
+        {displayZoom > 1.05 && (
+          <div className="absolute top-3 sm:top-4 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-xl border border-slate-200 px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-300/40">
             <span className="text-[11px] font-mono font-bold text-[#00AEEF]">
-              🔍 {Math.round(zoomLevel * 100)}%
+              🔍 {Math.round(displayZoom * 100)}%
             </span>
-            <span className="text-white/30 text-[10px]">•</span>
+            <span className="text-slate-300 text-[10px]">•</span>
             <button
               onClick={handleResetZoom}
-              className="text-[10px] font-black uppercase tracking-wider text-[#FFF200] hover:text-white transition-colors cursor-pointer flex items-center gap-1 border-none bg-transparent"
+              className="text-[10px] font-black uppercase tracking-wider text-slate-700 hover:text-[#00AEEF] transition-colors cursor-pointer flex items-center gap-1 border-none bg-transparent"
               title="Restablecer tamaño normal"
             >
               <RotateCcw className="h-3 w-3" />
@@ -1037,47 +1048,45 @@ export default function FlipbookViewer() {
         {currentPage > 0 && (
           <button 
             onClick={handlePrev}
-            className="absolute left-2 sm:left-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-slate-950/85 text-white active:scale-95 transition-all backdrop-blur-xl border border-white/35 flex shadow-2xl group cursor-pointer animate-nav-dark-glow"
+            className="absolute left-2 sm:left-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-white/95 text-slate-700 hover:text-[#00AEEF] hover:bg-white active:scale-95 transition-all backdrop-blur-xl border border-slate-200 flex shadow-xl shadow-slate-400/20 group cursor-pointer animate-nav-light-prev"
             title="Página Anterior"
           >
-            {/* Pulsing ripple wave */}
-            <span className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-30 pointer-events-none" />
-            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-left text-white drop-shadow" />
+            <span className="absolute inset-0 rounded-full bg-slate-300/30 animate-ping opacity-30 pointer-events-none" />
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-left text-slate-700 group-hover:text-[#00AEEF] drop-shadow-xs" />
           </button>
         )}
 
         {currentPage < totalPages - 1 && (
           <button 
             onClick={handleNext}
-            className="absolute right-2 sm:right-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] text-white active:scale-95 transition-all backdrop-blur-xl border border-white/40 flex shadow-2xl group cursor-pointer animate-nav-cyan-glow"
+            className="absolute right-2 sm:right-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] text-white active:scale-95 transition-all backdrop-blur-xl border border-white/60 flex shadow-xl shadow-[#00AEEF]/30 group cursor-pointer animate-nav-light-cyan"
             title="Página Siguiente"
           >
-            {/* Pulsing ripple wave */}
             <span className="absolute inset-0 rounded-full bg-[#00AEEF]/50 animate-ping opacity-40 pointer-events-none" />
-            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-right text-white drop-shadow" />
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-right text-white drop-shadow-xs" />
           </button>
         )}
 
-        {/* Zoom & Pan Wrapper */}
+        {/* Zoom & Pan Wrapper (Direct GPU Transform, zero React re-render freeze) */}
         <div 
+          ref={zoomWrapperRef}
           style={{
-            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0px) scale(${zoomLevel})`,
+            willChange: 'transform',
             transformOrigin: 'center center',
-            transition: (isPanning || isInteracting) ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1)',
           }}
-          className="relative w-full h-full flex items-center justify-center magazine-stage-glow select-none touch-none"
+          className="relative w-full h-full flex items-center justify-center magazine-stage-glow-light select-none touch-none"
         >
-          {/* Host element where PageFlip creates and manages pages (pointer-events disabled during zoom so drag pans the page instead of turning) */}
+          {/* Host element where PageFlip creates and manages pages */}
           <div 
             ref={bookHostRef} 
             className="w-full h-full flex items-center justify-center select-none"
             style={{
-              pointerEvents: zoomLevel > 1 ? 'none' : 'auto'
+              pointerEvents: displayZoom > 1.05 ? 'none' : 'auto'
             }}
           />
         </div>
 
-        {/* Bottom Thumbnails Drawer (Heyzine Shelf) */}
+        {/* Bottom Thumbnails Drawer (Heyzine Shelf - Light Mode) */}
         <AnimatePresence>
           {showThumbnails && (
             <motion.div
@@ -1085,7 +1094,7 @@ export default function FlipbookViewer() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 120 }}
               transition={{ duration: 0.25 }}
-              className="absolute inset-x-0 bottom-14 sm:bottom-16 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 p-3 sm:p-4 flex flex-col gap-3 max-h-[200px] sm:max-h-[220px] rounded-t-3xl shadow-2xl"
+              className="absolute inset-x-0 bottom-14 sm:bottom-16 z-40 bg-white/95 backdrop-blur-2xl border-t border-slate-200/90 p-3 sm:p-4 flex flex-col gap-3 max-h-[200px] sm:max-h-[220px] rounded-t-3xl shadow-2xl text-slate-800"
             >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
@@ -1096,13 +1105,13 @@ export default function FlipbookViewer() {
                 </div>
                 <button 
                   onClick={() => setShowThumbnails(false)}
-                  className="text-slate-400 hover:text-white uppercase font-black text-[9px] tracking-wider cursor-pointer px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+                  className="text-slate-500 hover:text-slate-900 uppercase font-black text-[9px] tracking-wider cursor-pointer px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   Ocultar
                 </button>
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-2 px-2 scrollbar-thin scrollbar-thumb-white/20 items-center">
+              <div className="flex gap-3 overflow-x-auto pb-2 px-2 scrollbar-thin scrollbar-thumb-slate-300 items-center">
                 {flipbook.pageUrls.map((url, i) => {
                   const isActive = currentPage === i;
                   return (
@@ -1112,10 +1121,10 @@ export default function FlipbookViewer() {
                         goToPage(i);
                         setShowThumbnails(false);
                       }}
-                      className={`relative w-20 shrink-0 aspect-[3/4] bg-slate-900 rounded-xl overflow-hidden border-2 transition-all cursor-pointer group ${
+                      className={`relative w-20 shrink-0 aspect-[3/4] bg-slate-100 rounded-xl overflow-hidden border-2 transition-all cursor-pointer group ${
                         isActive
-                          ? "border-[#00AEEF] scale-105 shadow-lg shadow-[#00AEEF]/30"
-                          : "border-transparent opacity-60 hover:opacity-100 hover:scale-102"
+                          ? "border-[#00AEEF] scale-105 shadow-lg shadow-[#00AEEF]/25"
+                          : "border-slate-200/80 opacity-70 hover:opacity-100 hover:scale-102 hover:border-slate-300"
                       }`}
                     >
                       <img 
@@ -1124,8 +1133,8 @@ export default function FlipbookViewer() {
                         className="w-full h-full object-cover pointer-events-none" 
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center p-1">
-                        <span className="text-[9px] font-black font-mono text-white/90">
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent flex items-end justify-center p-1">
+                        <span className="text-[9px] font-black font-mono text-white">
                           {i === 0 ? "Portada" : i === totalPages - 1 ? "Atrás" : i + 1}
                         </span>
                       </div>
@@ -1139,21 +1148,21 @@ export default function FlipbookViewer() {
 
       </div>
 
-      {/* Mobile Compact Bottom Floating Navigation Dock */}
+      {/* Mobile Compact Bottom Floating Navigation Dock (Light Mode) */}
       <div className="sm:hidden fixed bottom-3 inset-x-0 z-30 flex justify-center px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
-        <div className="pointer-events-auto bg-slate-950/90 backdrop-blur-2xl border border-white/15 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-2">
+        <div className="pointer-events-auto bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-full px-3 py-1.5 shadow-2xl shadow-slate-400/25 flex items-center gap-2">
           {/* Previous */}
           <button
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className="h-8.5 w-8.5 rounded-full bg-slate-900/80 hover:bg-white/20 disabled:opacity-20 flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border border-white/25 shadow-sm"
+            className="h-8.5 w-8.5 rounded-full bg-slate-100 hover:bg-slate-200 disabled:opacity-20 flex items-center justify-center text-slate-700 active:scale-90 transition-all cursor-pointer border border-slate-200/80 shadow-xs"
             title="Anterior"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
           {/* Page Counter Compact */}
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-200 font-mono px-1 select-none">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 font-mono px-1 select-none">
             {currentPage === 0 ? "Portada" : currentPage >= totalPages - 1 ? "Fin" : `${currentPage + 1}/${totalPages}`}
           </span>
 
@@ -1161,39 +1170,42 @@ export default function FlipbookViewer() {
           <button
             onClick={handleNext}
             disabled={currentPage >= totalPages - 1}
-            className="relative h-8.5 w-8.5 rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] hover:brightness-110 disabled:opacity-20 disabled:bg-white/10 flex items-center justify-center text-white shadow-lg shadow-[#00AEEF]/50 ring-2 ring-[#00AEEF]/60 active:scale-90 transition-all cursor-pointer border-none animate-pulse"
+            className="relative h-8.5 w-8.5 rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] hover:brightness-105 disabled:opacity-20 flex items-center justify-center text-white shadow-md shadow-[#00AEEF]/40 active:scale-90 transition-all cursor-pointer border-none"
             title="Siguiente"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
 
           {/* Mini separator */}
-          <div className="h-4 w-px bg-white/15 my-auto" />
+          <div className="h-4 w-px bg-slate-200 my-auto" />
 
-          {/* Zoom Toggle on Mobile */}
+          {/* Direct GPU Zoom Toggle on Mobile (No freeze, instant toggle) */}
           <button
             onClick={() => {
-              if (zoomLevel > 1.05) {
+              if (currentScaleRef.current > 1.1) {
                 handleResetZoom();
-                toast.info("Tamaño normal");
               } else {
-                setZoomLevel(2.0);
-                toast.success("Zoom 2.0x activado");
+                applyTransform(2.0, 0, 0, true);
+                setDisplayZoom(2.0);
               }
             }}
-            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
-              zoomLevel > 1.05 ? "bg-[#FFF200] text-slate-950 font-bold shadow-md shadow-[#FFF200]/30" : "bg-white/10"
+            className={`h-8 w-8 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer border-none ${
+              displayZoom > 1.05 
+                ? "bg-[#FFF200] text-slate-950 font-bold shadow-md shadow-[#FFF200]/30" 
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
-            title={zoomLevel > 1.05 ? "Restablecer Zoom" : "Acercar Zoom"}
+            title={displayZoom > 1.05 ? "Restablecer Zoom" : "Acercar Zoom"}
           >
-            {zoomLevel > 1.05 ? <ZoomOut className="h-3.5 w-3.5" /> : <ZoomIn className="h-3.5 w-3.5" />}
+            {displayZoom > 1.05 ? <ZoomOut className="h-3.5 w-3.5" /> : <ZoomIn className="h-3.5 w-3.5" />}
           </button>
 
           {/* Thumbnails Toggle */}
           <button
             onClick={() => setShowThumbnails(!showThumbnails)}
-            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
-              showThumbnails ? "bg-[#00AEEF]" : "bg-white/10"
+            className={`h-8 w-8 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer border-none ${
+              showThumbnails 
+                ? "bg-[#00AEEF] text-white shadow-xs" 
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
             title="Ver Páginas"
           >
@@ -1203,8 +1215,10 @@ export default function FlipbookViewer() {
           {/* AutoPlay Toggle */}
           <button
             onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
-            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
-              isAutoPlayEnabled ? "bg-[#FFF200] text-slate-950" : "bg-white/10"
+            className={`h-8 w-8 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer border-none ${
+              isAutoPlayEnabled 
+                ? "bg-[#FFF200] text-slate-950 shadow-xs" 
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
             title={isAutoPlayEnabled ? "Pausar" : "Auto"}
           >
@@ -1215,8 +1229,10 @@ export default function FlipbookViewer() {
           {flipbook.audioUrl && (
             <button
               onClick={handleToggleMusic}
-              className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
-                audioPlaying ? "bg-[#00AEEF] animate-pulse" : "bg-white/10"
+              className={`h-8 w-8 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer border-none ${
+                audioPlaying 
+                  ? "bg-[#00AEEF] text-white animate-pulse" 
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
               title={audioPlaying ? "Pausar Música" : "Reproducir Música"}
             >
@@ -1226,8 +1242,8 @@ export default function FlipbookViewer() {
         </div>
       </div>
 
-      {/* Floating Bottom Control Bar (Heyzine Layout - Desktop/Tablet) */}
-      <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-slate-950/80 backdrop-blur-xl px-3 sm:px-6 border-t border-white/5 items-center justify-between">
+      {/* Floating Bottom Control Bar (Light Editorial Layout - Desktop/Tablet) */}
+      <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-3 sm:px-6 border-t border-slate-200/90 items-center justify-between text-slate-800 shadow-xs">
         
         {/* Left Controls: Thumbnails & Reset Zoom */}
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1235,10 +1251,10 @@ export default function FlipbookViewer() {
           <Button
             variant="ghost"
             onClick={() => setShowThumbnails(!showThumbnails)}
-            className={`h-10 px-3 rounded-xl gap-2 font-black text-[9px] uppercase tracking-wider transition-all ${
+            className={`h-10 px-3 rounded-xl gap-2 font-black text-[9px] uppercase tracking-wider transition-all border ${
               showThumbnails 
-                ? "bg-[#00AEEF] text-white" 
-                : "bg-white/5 text-slate-300 hover:text-white hover:bg-white/10"
+                ? "bg-[#00AEEF] text-white border-[#00AEEF]" 
+                : "bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200 border-slate-200/80"
             }`}
             title="Ver Miniaturas"
           >
@@ -1250,10 +1266,10 @@ export default function FlipbookViewer() {
           <Button
             variant="ghost"
             onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
-            className={`h-10 px-3 rounded-xl gap-2 font-black text-[9px] uppercase tracking-wider transition-all ${
+            className={`h-10 px-3 rounded-xl gap-2 font-black text-[9px] uppercase tracking-wider transition-all border ${
               isAutoPlayEnabled 
-                ? "bg-[#FFF200] text-slate-950 hover:bg-[#FFF200]/90 shadow-md shadow-[#FFF200]/20" 
-                : "bg-white/5 text-slate-300 hover:text-white hover:bg-white/10"
+                ? "bg-[#FFF200] text-slate-950 hover:bg-[#FFF200]/90 border-[#FFF200] shadow-xs shadow-[#FFF200]/30" 
+                : "bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200 border-slate-200/80"
             }`}
             title={isAutoPlayEnabled ? "Pausar hojeado automático" : "Iniciar lectura automática"}
           >
@@ -1268,7 +1284,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handleGoToFirst}
             disabled={currentPage === 0}
-            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 text-white cursor-pointer transition-all border-none"
+            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-20 text-slate-700 cursor-pointer transition-all border border-slate-200/70"
             title="Primera Página"
           >
             <ChevronFirst className="h-4 w-4" />
@@ -1278,7 +1294,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className="h-10 gap-1.5 px-3 sm:px-4 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-20 text-white font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer border-none"
+            className="h-10 gap-1.5 px-3 sm:px-4 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-20 text-slate-700 font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer border border-slate-200/70"
             title="Página Anterior"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -1287,7 +1303,7 @@ export default function FlipbookViewer() {
 
           {/* Page Counter & Direct Scrubber Slider */}
           <div className="flex flex-col items-center justify-center px-2 sm:px-3 min-w-[120px] sm:min-w-[170px]">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-200 font-mono text-center">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-800 font-mono text-center">
               {getPageIndicatorText()}
             </span>
             {totalPages > 1 && (
@@ -1297,7 +1313,7 @@ export default function FlipbookViewer() {
                 max={totalPages - 1}
                 value={currentPage}
                 onChange={(e) => goToPage(parseInt(e.target.value, 10))}
-                className="w-full h-1 mt-1 accent-[#00AEEF] cursor-pointer bg-white/10 rounded-lg"
+                className="w-full h-1.5 mt-1 accent-[#00AEEF] cursor-pointer bg-slate-200 rounded-lg"
                 title="Deslizar para cambiar de página"
               />
             )}
@@ -1307,7 +1323,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handleNext}
             disabled={currentPage >= totalPages - 1}
-            className="h-10 gap-1.5 px-4 sm:px-5 rounded-xl bg-[#00AEEF] text-white hover:bg-[#00AEEF]/85 disabled:opacity-20 disabled:bg-white/10 disabled:text-white/40 font-black text-[10px] uppercase tracking-wider transition-all shadow-lg shadow-[#00AEEF]/25 flex items-center justify-center cursor-pointer border-none"
+            className="h-10 gap-1.5 px-4 sm:px-5 rounded-xl bg-[#00AEEF] text-white hover:bg-[#00AEEF]/90 disabled:opacity-20 disabled:bg-slate-200 disabled:text-slate-400 font-black text-[10px] uppercase tracking-wider transition-all shadow-xs shadow-[#00AEEF]/20 flex items-center justify-center cursor-pointer border-none"
             title="Página Siguiente"
           >
             <span className="hidden sm:inline">Siguiente</span>
@@ -1318,7 +1334,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handleGoToLast}
             disabled={currentPage >= totalPages - 1}
-            className="h-9 w-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 text-white cursor-pointer transition-all border-none"
+            className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-20 text-slate-700 cursor-pointer transition-all border border-slate-200/70"
             title="Última Página"
           >
             <ChevronLast className="h-4 w-4" />
@@ -1327,39 +1343,39 @@ export default function FlipbookViewer() {
 
         {/* Right Controls: Zoom Slider / In / Out */}
         <div className="flex items-center gap-1">
-          <div className="hidden sm:flex items-center bg-white/5 rounded-xl border border-white/5 overflow-hidden">
+          <div className="hidden sm:flex items-center bg-slate-100 rounded-xl border border-slate-200/80 overflow-hidden">
             <Button
               variant="ghost"
               onClick={handleZoomOut}
-              disabled={zoomLevel <= 1}
-              className="h-9 w-8 p-0 text-slate-400 hover:text-white disabled:opacity-20 hover:bg-white/5 rounded-none border-none"
+              disabled={displayZoom <= 1.05}
+              className="h-9 w-8 p-0 text-slate-600 hover:text-slate-900 disabled:opacity-20 hover:bg-slate-200 rounded-none border-none"
               title="Alejar Zoom"
             >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
             <button
               onClick={handleResetZoom}
-              className="px-2 h-9 text-[9px] font-bold text-slate-300 hover:text-white font-mono bg-transparent cursor-pointer"
+              className="px-2 h-9 text-[9px] font-bold text-slate-800 hover:text-[#00AEEF] font-mono bg-transparent cursor-pointer"
               title="Restablecer tamaño normal"
             >
-              {Math.round(zoomLevel * 100)}%
+              {Math.round(displayZoom * 100)}%
             </button>
             <Button
               variant="ghost"
               onClick={handleZoomIn}
-              disabled={zoomLevel >= 2.5}
-              className="h-9 w-8 p-0 text-slate-400 hover:text-white disabled:opacity-20 hover:bg-white/5 rounded-none border-none"
+              disabled={displayZoom >= 5.8}
+              className="h-9 w-8 p-0 text-slate-600 hover:text-slate-900 disabled:opacity-20 hover:bg-slate-200 rounded-none border-none"
               title="Acercar Zoom"
             >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
           </div>
 
-          {zoomLevel > 1 && (
+          {displayZoom > 1.05 && (
             <Button
               variant="ghost"
               onClick={handleResetZoom}
-              className="h-9 w-9 p-0 rounded-xl bg-[#FFF200]/20 text-[#FFF200] hover:bg-[#FFF200]/30"
+              className="h-9 w-9 p-0 rounded-xl bg-[#FFF200] text-slate-950 hover:bg-[#FFF200]/80 shadow-xs"
               title="Restablecer Zoom"
             >
               <RotateCcw className="h-3.5 w-3.5" />

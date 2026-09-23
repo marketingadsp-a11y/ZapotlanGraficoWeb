@@ -183,8 +183,8 @@ canvas.stf__canvas {
   left: 0 !important;
   top: 0 !important;
   display: block !important;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06);
+  border-radius: 6px;
 }
 
 .stf__wrapper {
@@ -199,15 +199,15 @@ canvas.stf__canvas {
 }
 
 .stf__item {
-  background-color: #0f172a;
+  background-color: #ffffff;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
 }
 
 /* Hardcover page effect (front & back covers) */
 .stf__item.--hard {
-  background-color: #020617;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.65);
+  background-color: #f8fafc;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
 }
 
 /* Page inner content */
@@ -215,7 +215,7 @@ canvas.stf__canvas {
   position: relative;
   width: 100%;
   height: 100%;
-  background: #0f172a;
+  background: #ffffff;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -231,7 +231,7 @@ canvas.stf__canvas {
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
-  background-color: #0f172a;
+  background-color: #ffffff;
 }
 
 /* Left page crease shadow (center spine) */
@@ -240,8 +240,8 @@ canvas.stf__canvas {
   top: 0;
   bottom: 0;
   right: 0;
-  width: 40px;
-  background: linear-gradient(to left, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 100%);
+  width: 32px;
+  background: linear-gradient(to left, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.05) 45%, transparent 100%);
   pointer-events: none;
   z-index: 10;
 }
@@ -252,11 +252,12 @@ canvas.stf__canvas {
   top: 0;
   bottom: 0;
   left: 0;
-  width: 40px;
-  background: linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 100%);
+  width: 32px;
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.05) 45%, transparent 100%);
   pointer-events: none;
   z-index: 10;
 }
+
 
 /* Hardcover book spine edge effect */
 .cover-spine {
@@ -320,19 +321,38 @@ canvas.stf__canvas {
   50% { transform: translateX(-3px); }
 }
 
-.animate-nav-cyan-glow {
-  animation: navGlowPulseCyan 2.4s infinite ease-in-out;
+/* Ambient glow under the open magazine in Light Mode */
+.magazine-stage-glow-light {
+  filter: drop-shadow(0 20px 40px rgba(15, 23, 42, 0.16)) drop-shadow(0 2px 8px rgba(15, 23, 42, 0.08));
 }
 
-.animate-nav-dark-glow {
-  animation: navGlowPulseDark 2.4s infinite ease-in-out;
+@keyframes navGlowPulseLightCyan {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 174, 239, 0.6), 0 8px 24px rgba(0, 174, 239, 0.4);
+    transform: scale(1) translateY(-50%);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 174, 239, 0), 0 12px 34px rgba(0, 174, 239, 0.65);
+    transform: scale(1.08) translateY(-50%);
+  }
 }
 
-.animate-nudge-right {
-  animation: subtleNudgeRight 1.6s infinite ease-in-out;
+@keyframes navGlowPulseLightPrev {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(100, 116, 139, 0.35), 0 6px 18px rgba(15, 23, 42, 0.15);
+    transform: scale(1) translateY(-50%);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(100, 116, 139, 0), 0 10px 26px rgba(15, 23, 42, 0.25);
+    transform: scale(1.08) translateY(-50%);
+  }
 }
 
-.animate-nudge-left {
-  animation: subtleNudgeLeft 1.6s infinite ease-in-out;
+.animate-nav-light-cyan {
+  animation: navGlowPulseLightCyan 2.2s infinite ease-in-out;
+}
+
+.animate-nav-light-prev {
+  animation: navGlowPulseLightPrev 2.2s infinite ease-in-out;
 }
 
