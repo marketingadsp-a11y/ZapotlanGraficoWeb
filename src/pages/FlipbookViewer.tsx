@@ -526,6 +526,11 @@ export default function FlipbookViewer() {
     };
   }, []);
 
+  // Recalculate book sizing when toggling fullscreen so it fills 100% of the mobile screen
+  useEffect(() => {
+    setViewportKey(prev => prev + 1);
+  }, [isFullscreen]);
+
   // Update dynamic horizontal centering on the book element itself
   const updateBookCentering = useCallback((pageIdx: number, total: number, isLandscape: boolean) => {
     if (!bookHostRef.current) return;
@@ -607,7 +612,7 @@ export default function FlipbookViewer() {
       useMouseEvents: !isMobile,
       swipeDistance: 25,
       showPageCorners: !isMobile,
-      disableFlipByClick: true,
+      disableFlipByClick: false,
       maxShadowOpacity: 0.65,
     });
 
@@ -807,18 +812,67 @@ export default function FlipbookViewer() {
   const handleNext = () => {
     if (!pageFlipInstanceRef.current) return;
     try {
-      pageFlipInstanceRef.current.flipNext();
+      const cur = pageFlipInstanceRef.current.getCurrentPageIndex();
+      if (cur >= totalPages - 1) return;
+
+      const isPortrait = pageFlipInstanceRef.current.getOrientation() === 'portrait';
+      const step = isPortrait ? 1 : (cur === 0 ? 1 : 2);
+      const target = Math.min(totalPages - 1, cur + step);
+
+      try {
+        pageFlipInstanceRef.current.flipNext();
+      } catch (e) {
+        console.warn("flipNext error:", e);
+      }
+
+      // Safety fallback: if page hasn't turned after a moment, force turn to target
+      setTimeout(() => {
+        if (pageFlipInstanceRef.current && pageFlipInstanceRef.current.getCurrentPageIndex() === cur) {
+          try {
+            pageFlipInstanceRef.current.flip(target);
+          } catch {
+            try {
+              pageFlipInstanceRef.current.turnToPage(target);
+            } catch {}
+          }
+        }
+      }, 70);
     } catch (e) {
-      console.warn("flipNext error:", e);
+      console.warn("handleNext error:", e);
     }
   };
 
   const handlePrev = () => {
     if (!pageFlipInstanceRef.current) return;
     try {
-      pageFlipInstanceRef.current.flipPrev();
+      const cur = pageFlipInstanceRef.current.getCurrentPageIndex();
+      if (cur <= 0) return;
+
+      const isPortrait = pageFlipInstanceRef.current.getOrientation() === 'portrait';
+      const step = isPortrait ? 1 : (cur === 1 ? 1 : 2);
+      const target = Math.max(0, cur - step);
+
+      // Execute animated flip
+      try {
+        pageFlipInstanceRef.current.flipPrev();
+      } catch (e) {
+        console.warn("flipPrev error:", e);
+      }
+
+      // Safety fallback: if page hasn't turned after a moment, force turn to target
+      setTimeout(() => {
+        if (pageFlipInstanceRef.current && pageFlipInstanceRef.current.getCurrentPageIndex() === cur) {
+          try {
+            pageFlipInstanceRef.current.flip(target);
+          } catch {
+            try {
+              pageFlipInstanceRef.current.turnToPage(target);
+            } catch {}
+          }
+        }
+      }, 70);
     } catch (e) {
-      console.warn("flipPrev error:", e);
+      console.warn("handlePrev error:", e);
     }
   };
 
@@ -863,23 +917,26 @@ export default function FlipbookViewer() {
     return () => clearInterval(interval);
   }, [isAutoPlayEnabled, currentPage, totalPages, flipbook, goToPage]);
 
-  // Fullscreen toggle handler
+  // Fullscreen toggle handler (optimizado para Android, iPad, iPhone y Desktop)
   const toggleFullscreen = () => {
     const docEl = document.documentElement as any;
     const doc = document as any;
 
     if (!isFullscreen) {
       if (docEl.requestFullscreen) docEl.requestFullscreen().catch(() => {});
-      else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+      else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen().catch(() => {});
+      else if (docEl.webkitRequestFullScreen) docEl.webkitRequestFullScreen();
       else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
       setIsFullscreen(true);
+      toast.success("Pantalla completa activada");
     } else {
       if (document.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement) {
         if (doc.exitFullscreen) doc.exitFullscreen().catch(() => {});
-        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen().catch(() => {});
         else if (doc.msExitFullscreen) doc.msExitFullscreen();
       }
       setIsFullscreen(false);
+      toast.info("Modo estándar");
     }
   };
 
@@ -995,105 +1052,119 @@ export default function FlipbookViewer() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00AEEF]/8 rounded-full blur-[160px] pointer-events-none" />
       <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#FFF200]/12 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Top Header Controls (Light Editorial Modern) */}
-      <header className="h-14 shrink-0 z-30 bg-white/80 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3">
-          <Link 
-            to="/revista"
-            className="flex h-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3 group gap-2 border border-slate-200/60"
-            title="Cerrar Revista"
-          >
-            <X className="h-4 w-4 text-slate-600 group-hover:text-white transition-colors" />
-            <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">
-              Cerrar
-            </span>
-          </Link>
-
-          <div className="hidden md:block max-w-sm lg:max-w-md">
-            <h1 className="text-xs font-black tracking-tight uppercase truncate text-slate-900">
-              {flipbook.title}
-            </h1>
-            <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#00AEEF]">
-              <Calendar className="h-2.5 w-2.5" />
-              <span>
-                {flipbook.createdAt 
-                  ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
-                  : "Edición Digital"}
+      {/* Top Header Controls (Light Editorial Modern) - Se oculta en pantalla completa para expandir la revista a 100% */}
+      {!isFullscreen && (
+        <header className="h-14 shrink-0 z-30 bg-white/80 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
+          <div className="flex items-center gap-3">
+            <Link 
+              to="/revista"
+              className="flex h-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3 group gap-2 border border-slate-200/60"
+              title="Cerrar Revista"
+            >
+              <X className="h-4 w-4 text-slate-600 group-hover:text-white transition-colors" />
+              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">
+                Cerrar
               </span>
+            </Link>
+
+            <div className="hidden md:block max-w-sm lg:max-w-md">
+              <h1 className="text-xs font-black tracking-tight uppercase truncate text-slate-900">
+                {flipbook.title}
+              </h1>
+              <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#00AEEF]">
+                <Calendar className="h-2.5 w-2.5" />
+                <span>
+                  {flipbook.createdAt 
+                    ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
+                    : "Edición Digital"}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Brand Center Badge */}
-        <div className="flex items-center gap-2">
-          {settings.logoUrl ? (
-            <img 
-              src={settings.logoUrl} 
-              alt="Logo" 
-              className="h-6 md:h-7 max-w-[140px] object-contain drop-shadow-xs" 
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <span className="text-[11px] font-black tracking-tighter uppercase text-[#00AEEF]">
-              ZAPOTLÁN <span className="text-slate-900">GRÁFICO</span>
-            </span>
-          )}
-        </div>
+          {/* Brand Center Badge */}
+          <div className="flex items-center gap-2">
+            {settings.logoUrl ? (
+              <img 
+                src={settings.logoUrl} 
+                alt="Logo" 
+                className="h-6 md:h-7 max-w-[140px] object-contain drop-shadow-xs" 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span className="text-[11px] font-black tracking-tighter uppercase text-[#00AEEF]">
+                ZAPOTLÁN <span className="text-slate-900">GRÁFICO</span>
+              </span>
+            )}
+          </div>
 
-        {/* Top Right Quick Actions */}
-        <div className="flex items-center gap-1.5">
-          {/* Background Music Button (if audio configured) */}
-          {flipbook.audioUrl && (
+          {/* Top Right Quick Actions */}
+          <div className="flex items-center gap-1.5">
+            {/* Background Music Button (if audio configured) */}
+            {flipbook.audioUrl && (
+              <Button
+                variant="ghost"
+                onClick={handleToggleMusic}
+                className={`h-9 px-2.5 gap-1.5 rounded-xl transition-all border ${
+                  audioPlaying 
+                    ? "bg-[#00AEEF] text-white border-[#00AEEF] shadow-xs shadow-[#00AEEF]/30" 
+                    : "bg-slate-100/80 text-slate-700 hover:text-slate-900 hover:bg-slate-200/90 border-slate-200/70"
+                }`}
+                title={audioPlaying ? "Pausar música de fondo" : "Reproducir música de fondo"}
+              >
+                <Music className={`h-4 w-4 ${audioPlaying ? "animate-pulse text-white" : "text-slate-600"}`} />
+                <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
+                  {audioPlaying ? "Música" : "Audio"}
+                </span>
+              </Button>
+            )}
+
+            {/* Sound Toggle (Flip effect) */}
             <Button
               variant="ghost"
-              onClick={handleToggleMusic}
-              className={`h-9 px-2.5 gap-1.5 rounded-xl transition-all border ${
-                audioPlaying 
-                  ? "bg-[#00AEEF] text-white border-[#00AEEF] shadow-xs shadow-[#00AEEF]/30" 
-                  : "bg-slate-100/80 text-slate-700 hover:text-slate-900 hover:bg-slate-200/90 border-slate-200/70"
+              onClick={handleToggleSound}
+              className={`h-9 w-9 p-0 rounded-xl transition-colors border ${
+                !isMuted ? "bg-[#00AEEF]/10 text-[#00AEEF] border-[#00AEEF]/30" : "bg-slate-100/80 text-slate-600 hover:text-slate-900 border-slate-200/70"
               }`}
-              title={audioPlaying ? "Pausar música de fondo" : "Reproducir música de fondo"}
+              title={isMuted ? "Activar sonido de hojeado" : "Silenciar sonido de hojeado"}
             >
-              <Music className={`h-4 w-4 ${audioPlaying ? "animate-pulse text-white" : "text-slate-600"}`} />
-              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
-                {audioPlaying ? "Música" : "Audio"}
-              </span>
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </Button>
-          )}
 
-          {/* Sound Toggle (Flip effect) */}
-          <Button
-            variant="ghost"
-            onClick={handleToggleSound}
-            className={`h-9 w-9 p-0 rounded-xl transition-colors border ${
-              !isMuted ? "bg-[#00AEEF]/10 text-[#00AEEF] border-[#00AEEF]/30" : "bg-slate-100/80 text-slate-600 hover:text-slate-900 border-slate-200/70"
-            }`}
-            title={isMuted ? "Activar sonido de hojeado" : "Silenciar sonido de hojeado"}
-          >
-            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </Button>
+            {/* Share Button */}
+            <Button
+              variant="ghost"
+              onClick={handleShareUrl}
+              className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
+              title="Compartir Edición"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
 
-          {/* Share Button */}
-          <Button
-            variant="ghost"
-            onClick={handleShareUrl}
-            className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
-            title="Compartir Edición"
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
+            {/* Fullscreen Button */}
+            <Button
+              variant="ghost"
+              onClick={toggleFullscreen}
+              className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
+              title="Pantalla Completa"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+          </div>
+        </header>
+      )}
 
-          {/* Fullscreen Button */}
-          <Button
-            variant="ghost"
-            onClick={toggleFullscreen}
-            className="h-9 w-9 p-0 rounded-xl bg-slate-100/80 text-slate-600 hover:text-slate-900 hover:bg-slate-200/90 border border-slate-200/70"
-            title="Pantalla Completa"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
-        </div>
-      </header>
+      {/* Floating Exit Button when in Fullscreen */}
+      {isFullscreen && (
+        <button
+          onClick={toggleFullscreen}
+          className="fixed top-3 right-3 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-slate-800 border border-slate-200 shadow-xl backdrop-blur-xl hover:bg-slate-100 cursor-pointer active:scale-95 transition-all"
+          title="Salir de pantalla completa"
+        >
+          <Minimize2 className="h-3.5 w-3.5 text-[#00AEEF]" />
+          <span className="text-[10px] font-black uppercase tracking-wider">Salir</span>
+        </button>
+      )}
 
       {/* Main Interactive Stage with 3D Flipbook Canvas */}
       <div 
@@ -1291,6 +1362,19 @@ export default function FlipbookViewer() {
             title="Ver Páginas"
           >
             <Grid className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Fullscreen Toggle on Mobile */}
+          <button
+            onClick={toggleFullscreen}
+            className={`h-8 w-8 rounded-full flex items-center justify-center active:scale-90 transition-all cursor-pointer border-none ${
+              isFullscreen 
+                ? "bg-[#00AEEF] text-white shadow-xs" 
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+            title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
 
           {/* AutoPlay Toggle */}
