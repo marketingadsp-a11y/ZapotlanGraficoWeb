@@ -287,3 +287,52 @@ canvas.stf__canvas {
   filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 40px rgba(0, 174, 239, 0.08));
 }
 
+/* Eye-catching persistent glowing navigation buttons */
+@keyframes navGlowPulseCyan {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 174, 239, 0.7), 0 0 20px rgba(0, 174, 239, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.2);
+    transform: scale(1) translateY(-50%);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 174, 239, 0), 0 0 35px rgba(0, 174, 239, 0.8), inset 0 0 14px rgba(255, 255, 255, 0.4);
+    transform: scale(1.06) translateY(-50%);
+  }
+}
+
+@keyframes navGlowPulseDark {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4), 0 0 15px rgba(0, 174, 239, 0.3);
+    transform: scale(1) translateY(-50%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0), 0 0 28px rgba(0, 174, 239, 0.6);
+    transform: scale(1.06) translateY(-50%);
+  }
+}
+
+@keyframes subtleNudgeRight {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+
+@keyframes subtleNudgeLeft {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-3px); }
+}
+
+.animate-nav-cyan-glow {
+  animation: navGlowPulseCyan 2.4s infinite ease-in-out;
+}
+
+.animate-nav-dark-glow {
+  animation: navGlowPulseDark 2.4s infinite ease-in-out;
+}
+
+.animate-nudge-right {
+  animation: subtleNudgeRight 1.6s infinite ease-in-out;
+}
+
+.animate-nudge-left {
+  animation: subtleNudgeLeft 1.6s infinite ease-in-out;
+}
+

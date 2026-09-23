@@ -211,7 +211,7 @@ export default function FlipbookViewer() {
   }, [flipbook?.audioUrl, flipbook?.autoPlayAudio]);
 
   // Zoom handlers
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 2.5));
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3.5));
   const handleZoomOut = () => {
     setZoomLevel(prev => {
       const next = Math.max(prev - 0.25, 1);
@@ -224,8 +224,171 @@ export default function FlipbookViewer() {
     setPanOffset({ x: 0, y: 0 });
   };
 
-  // Pan controls when zoomed in
+  // Zoom & Pan refs for synchronous access in touch/wheel handlers
+  const zoomLevelRef = useRef(zoomLevel);
+  zoomLevelRef.current = zoomLevel;
+
+  const panOffsetRef = useRef(panOffset);
+  panOffsetRef.current = panOffset;
+
+  // Touch gesture state ref for pinch-to-zoom, double-tap & pan
+  const touchGestureRef = useRef<{
+    mode: 'none' | 'pinch' | 'pan';
+    initialDist: number;
+    initialZoom: number;
+    startPan: { x: number; y: number };
+    startTouch: { x: number; y: number };
+    lastTapTime: number;
+    lastTapPos: { x: number; y: number };
+  }>({
+    mode: 'none',
+    initialDist: 0,
+    initialZoom: 1,
+    startPan: { x: 0, y: 0 },
+    startTouch: { x: 0, y: 0 },
+    lastTapTime: 0,
+    lastTapPos: { x: 0, y: 0 },
+  });
+
+  // Touch listeners on stage for pinch-to-zoom, 1-finger pan when zoomed, and double-tap
+  useEffect(() => {
+    const stage = stageContainerRef.current;
+    if (!stage) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        // Pinch gesture started
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        touchGestureRef.current.mode = 'pinch';
+        touchGestureRef.current.initialDist = dist;
+        touchGestureRef.current.initialZoom = zoomLevelRef.current;
+        touchGestureRef.current.startPan = { ...panOffsetRef.current };
+        setIsPanning(false);
+        if (e.cancelable) e.preventDefault();
+      } else if (e.touches.length === 1) {
+        const t = e.touches[0];
+        const now = Date.now();
+        const { lastTapTime, lastTapPos } = touchGestureRef.current;
+        const distFromPrev = Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y);
+
+        // Double tap detection (< 320ms and < 30px movement)
+        if (now - lastTapTime < 320 && distFromPrev < 30) {
+          touchGestureRef.current.lastTapTime = 0;
+          if (zoomLevelRef.current > 1) {
+            // Reset zoom
+            setZoomLevel(1);
+            setPanOffset({ x: 0, y: 0 });
+            toast.info("Zoom restablecido", { duration: 1000 });
+          } else {
+            // Zoom in to 2.2x centered around tapped location
+            setZoomLevel(2.2);
+            const rect = stage.getBoundingClientRect();
+            const tapOffsetX = t.clientX - (rect.left + rect.width / 2);
+            const tapOffsetY = t.clientY - (rect.top + rect.height / 2);
+            setPanOffset({
+              x: Math.max(-260, Math.min(260, -tapOffsetX * 1.1)),
+              y: Math.max(-260, Math.min(260, -tapOffsetY * 1.1)),
+            });
+            toast.success("Zoom 2.2x (Doble toque)", { duration: 1000 });
+          }
+          if (e.cancelable) e.preventDefault();
+          return;
+        }
+
+        touchGestureRef.current.lastTapTime = now;
+        touchGestureRef.current.lastTapPos = { x: t.clientX, y: t.clientY };
+
+        if (zoomLevelRef.current > 1) {
+          touchGestureRef.current.mode = 'pan';
+          touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
+          touchGestureRef.current.startPan = { ...panOffsetRef.current };
+          setIsPanning(true);
+          if (e.cancelable) e.preventDefault();
+        } else {
+          touchGestureRef.current.mode = 'none';
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchGestureRef.current.mode === 'pinch') {
+        if (e.cancelable) e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        if (touchGestureRef.current.initialDist > 0) {
+          const ratio = dist / touchGestureRef.current.initialDist;
+          const nextZoom = Math.min(Math.max(touchGestureRef.current.initialZoom * ratio, 1), 3.5);
+          setZoomLevel(nextZoom);
+          if (nextZoom <= 1.02) {
+            setPanOffset({ x: 0, y: 0 });
+          }
+        }
+      } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pan' && zoomLevelRef.current > 1) {
+        if (e.cancelable) e.preventDefault();
+        const t = e.touches[0];
+        const dx = t.clientX - touchGestureRef.current.startTouch.x;
+        const dy = t.clientY - touchGestureRef.current.startTouch.y;
+        const rect = stage.getBoundingClientRect();
+        const maxBoundX = (zoomLevelRef.current - 1) * (rect.width * 0.65);
+        const maxBoundY = (zoomLevelRef.current - 1) * (rect.height * 0.65);
+
+        const newX = Math.max(-maxBoundX, Math.min(maxBoundX, touchGestureRef.current.startPan.x + dx));
+        const newY = Math.max(-maxBoundY, Math.min(maxBoundY, touchGestureRef.current.startPan.y + dy));
+        setPanOffset({ x: newX, y: newY });
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        touchGestureRef.current.mode = 'none';
+        setIsPanning(false);
+        if (zoomLevelRef.current < 1.05) {
+          setZoomLevel(1);
+          setPanOffset({ x: 0, y: 0 });
+        }
+      } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pinch') {
+        touchGestureRef.current.mode = zoomLevelRef.current > 1 ? 'pan' : 'none';
+        const t = e.touches[0];
+        touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
+        touchGestureRef.current.startPan = { ...panOffsetRef.current };
+        setIsPanning(zoomLevelRef.current > 1);
+      }
+    };
+
+    // Wheel zoom support (Trackpad pinch or Ctrl + Mouse Wheel)
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        if (e.cancelable) e.preventDefault();
+        const delta = -e.deltaY * 0.01;
+        setZoomLevel(prev => {
+          const next = Math.min(Math.max(prev + delta, 1), 3.5);
+          if (next <= 1.02) setPanOffset({ x: 0, y: 0 });
+          return next;
+        });
+      }
+    };
+
+    stage.addEventListener('touchstart', handleTouchStart, { passive: false });
+    stage.addEventListener('touchmove', handleTouchMove, { passive: false });
+    stage.addEventListener('touchend', handleTouchEnd, { passive: false });
+    stage.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    stage.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      stage.removeEventListener('touchstart', handleTouchStart);
+      stage.removeEventListener('touchmove', handleTouchMove);
+      stage.removeEventListener('touchend', handleTouchEnd);
+      stage.removeEventListener('touchcancel', handleTouchEnd);
+      stage.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  // Desktop Mouse Pan controls when zoomed in
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return; // Handled by native touch listeners
     if (zoomLevel <= 1) return;
     setIsPanning(true);
     setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
@@ -233,6 +396,7 @@ export default function FlipbookViewer() {
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return;
     if (!isPanning || zoomLevel <= 1) return;
     const maxBoundX = (zoomLevel - 1) * 450;
     const maxBoundY = (zoomLevel - 1) * 350;
@@ -242,6 +406,7 @@ export default function FlipbookViewer() {
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return;
     setIsPanning(false);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -790,24 +955,46 @@ export default function FlipbookViewer() {
           cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default'
         }}
       >
-        {/* Navigation overlay buttons (Visibles tanto en Desktop como en Celular) */}
-        {zoomLevel <= 1 && currentPage > 0 && (
+        {/* Floating Zoom Indicator & Quick Reset on Mobile / Zoomed state */}
+        {zoomLevel > 1 && (
+          <div className="absolute top-3 sm:top-4 z-30 flex items-center gap-2 bg-slate-950/90 backdrop-blur-xl border border-[#00AEEF]/50 px-3.5 py-1.5 rounded-full shadow-2xl shadow-cyan-950/50">
+            <span className="text-[11px] font-mono font-bold text-[#00AEEF]">
+              🔍 {Math.round(zoomLevel * 100)}%
+            </span>
+            <span className="text-white/30 text-[10px]">•</span>
+            <button
+              onClick={handleResetZoom}
+              className="text-[10px] font-black uppercase tracking-wider text-[#FFF200] hover:text-white transition-colors cursor-pointer flex items-center gap-1 border-none bg-transparent"
+              title="Restablecer tamaño normal"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Restablecer
+            </button>
+          </div>
+        )}
+
+        {/* Navigation overlay buttons (Con efecto luminoso continuo, siempre visibles en cualquier momento) */}
+        {currentPage > 0 && (
           <button 
             onClick={handlePrev}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-slate-950/70 text-white/90 hover:text-white hover:bg-[#00AEEF] active:scale-90 transition-all backdrop-blur-md border border-white/20 flex shadow-2xl group cursor-pointer"
+            className="absolute left-2 sm:left-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-slate-950/85 text-white active:scale-95 transition-all backdrop-blur-xl border border-white/35 flex shadow-2xl group cursor-pointer animate-nav-dark-glow"
             title="Página Anterior"
           >
-            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 transform group-hover:-translate-x-0.5 transition-transform" />
+            {/* Pulsing ripple wave */}
+            <span className="absolute inset-0 rounded-full bg-white/20 animate-ping opacity-30 pointer-events-none" />
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-left text-white drop-shadow" />
           </button>
         )}
 
-        {zoomLevel <= 1 && currentPage < totalPages - 1 && (
+        {currentPage < totalPages - 1 && (
           <button 
             onClick={handleNext}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-[#00AEEF]/85 text-white hover:bg-[#00AEEF] active:scale-90 transition-all backdrop-blur-md border border-white/25 flex shadow-2xl shadow-[#00AEEF]/30 group cursor-pointer"
+            className="absolute right-2 sm:right-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] text-white active:scale-95 transition-all backdrop-blur-xl border border-white/40 flex shadow-2xl group cursor-pointer animate-nav-cyan-glow"
             title="Página Siguiente"
           >
-            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 transform group-hover:translate-x-0.5 transition-transform" />
+            {/* Pulsing ripple wave */}
+            <span className="absolute inset-0 rounded-full bg-[#00AEEF]/50 animate-ping opacity-40 pointer-events-none" />
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-right text-white drop-shadow" />
           </button>
         )}
 
@@ -820,10 +1007,13 @@ export default function FlipbookViewer() {
           }}
           className="relative w-full h-full flex items-center justify-center magazine-stage-glow select-none"
         >
-          {/* Host element where PageFlip creates and manages pages */}
+          {/* Host element where PageFlip creates and manages pages (pointer-events disabled during zoom so drag pans the page instead of turning) */}
           <div 
             ref={bookHostRef} 
             className="w-full h-full flex items-center justify-center select-none"
+            style={{
+              pointerEvents: zoomLevel > 1 ? 'none' : 'auto'
+            }}
           />
         </div>
 
@@ -897,7 +1087,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handlePrev}
             disabled={currentPage === 0}
-            className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none"
+            className="h-8.5 w-8.5 rounded-full bg-slate-900/80 hover:bg-white/20 disabled:opacity-20 flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border border-white/25 shadow-sm"
             title="Anterior"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -912,7 +1102,7 @@ export default function FlipbookViewer() {
           <button
             onClick={handleNext}
             disabled={currentPage >= totalPages - 1}
-            className="h-8 w-8 rounded-full bg-[#00AEEF] hover:bg-[#00AEEF]/80 disabled:opacity-20 disabled:bg-white/10 flex items-center justify-center text-white shadow-md shadow-[#00AEEF]/30 active:scale-90 transition-all cursor-pointer border-none"
+            className="relative h-8.5 w-8.5 rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] hover:brightness-110 disabled:opacity-20 disabled:bg-white/10 flex items-center justify-center text-white shadow-lg shadow-[#00AEEF]/50 ring-2 ring-[#00AEEF]/60 active:scale-90 transition-all cursor-pointer border-none animate-pulse"
             title="Siguiente"
           >
             <ChevronRight className="h-4 w-4" />
