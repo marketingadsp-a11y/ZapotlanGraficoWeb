@@ -9,6 +9,10 @@ interface Flipbook {
   slug: string;
   createdAt: any;
   views: number;
+  autoPlayDefault?: boolean;
+  autoPlayInterval?: number;
+  audioUrl?: string;
+  autoPlayAudio?: boolean;
 }
 
 export const dataCache = {

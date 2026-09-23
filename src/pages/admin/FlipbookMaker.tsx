@@ -21,7 +21,10 @@ import {
   FileCode,
   Sparkles,
   RefreshCw,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Play,
+  Music,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -44,6 +47,11 @@ export default function FlipbookMaker() {
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
+  const [autoPlayDefault, setAutoPlayDefault] = useState(false);
+  const [autoPlayInterval, setAutoPlayInterval] = useState(5);
+  const [audioUrl, setAudioUrl] = useState('');
+  const [autoPlayAudio, setAutoPlayAudio] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
   
   // PDF JS & Processing states
   const [pdfJsLoaded, setPdfJsLoaded] = useState(false);
@@ -117,6 +125,57 @@ export default function FlipbookMaker() {
       } else {
         toast.error('Solo se permite subir archivos en formato PDF.');
       }
+    }
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const audioFile = e.target.files?.[0];
+    if (!audioFile) return;
+
+    if (!audioFile.type.includes('audio') && !audioFile.name.endsWith('.mp3')) {
+      toast.error("Por favor selecciona un archivo de audio válido (.mp3, etc.)");
+      return;
+    }
+
+    setUploadingAudio(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result as string;
+          const res = await fetch('/api/upload-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: audioFile.name,
+              base64Data
+            })
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText.startsWith('<') ? 'Error en el servidor al procesar el archivo' : errText);
+          }
+
+          const data = await res.json();
+          if (data.success && data.url) {
+            setAudioUrl(data.url);
+            toast.success("Audio MP3 subido correctamente");
+          } else {
+            throw new Error(data.error || "Fallo en la subida");
+          }
+        } catch (uploadErr: any) {
+          console.error("Upload error:", uploadErr);
+          toast.error("Error al subir el audio: " + uploadErr.message);
+        } finally {
+          setUploadingAudio(false);
+        }
+      };
+      reader.readAsDataURL(audioFile);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error al procesar el archivo");
+      setUploadingAudio(false);
     }
   };
 
@@ -261,7 +320,11 @@ export default function FlipbookMaker() {
             pageUrls: pageUrlsList,
             slug: publicationSlug + '-' + Math.floor(Math.random() * 1000),
             createdAt: Timestamp.now(),
-            views: 0
+            views: 0,
+            autoPlayDefault,
+            autoPlayInterval: Number(autoPlayInterval) || 5,
+            audioUrl: audioUrl.trim(),
+            autoPlayAudio
           };
 
           const docRef = await addDoc(collection(db, 'flipbooks'), newFlipbookDoc);
@@ -373,6 +436,149 @@ export default function FlipbookMaker() {
                 <p className="text-[9px] text-slate-400 font-medium pl-2 leading-normal">
                   De forma predeterminada, la primera hoja extraída del PDF se usará como portada en la sección de revistas pública.
                 </p>
+              </div>
+
+              {/* MODO PLAY AUTOMÁTICO */}
+              <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                      <Play className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        Paso de Páginas Automático (Modo Play)
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        ¿Iniciar la revista pasando hojas automáticamente por defecto?
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setAutoPlayDefault(!autoPlayDefault)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      autoPlayDefault ? 'bg-amber-500' : 'bg-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        autoPlayDefault ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {autoPlayDefault && (
+                  <div className="flex items-center gap-3 pt-2 border-t border-amber-500/10">
+                    <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                    <label className="text-xs font-bold text-slate-700">
+                      Tiempo por página:
+                    </label>
+                    <select
+                      value={autoPlayInterval}
+                      onChange={(e) => setAutoPlayInterval(Number(e.target.value))}
+                      className="h-10 px-3 rounded-xl border border-slate-200 bg-white font-bold text-xs text-slate-800"
+                    >
+                      <option value={3}>3 segundos</option>
+                      <option value={4}>4 segundos</option>
+                      <option value={5}>5 segundos (Recomendado)</option>
+                      <option value={6}>6 segundos</option>
+                      <option value={8}>8 segundos</option>
+                      <option value={10}>10 segundos</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* AUDIO MP3 DE FONDO */}
+              <div className="p-5 rounded-2xl bg-[#00AEEF]/5 border border-[#00AEEF]/20 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-xl bg-[#00AEEF]/10 text-[#00AEEF] flex items-center justify-center">
+                      <Music className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-slate-900">
+                        Audio de Fondo (MP3)
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Música ambiental, narración o audio de la edición.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audio URL Input & Upload Button */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={audioUrl}
+                      onChange={(e) => setAudioUrl(e.target.value)}
+                      placeholder="Pega enlace de audio .mp3 o sube un archivo..."
+                      className="h-11 rounded-xl border-slate-200 text-xs flex-1"
+                    />
+                    <label className="h-11 px-4 rounded-xl bg-slate-900 hover:bg-[#00AEEF] text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors shrink-0">
+                      {uploadingAudio ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Subiendo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          <span>Subir MP3</span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="audio/*,.mp3"
+                        onChange={handleAudioUpload}
+                        disabled={uploadingAudio}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Audio Player Preview */}
+                  {audioUrl && (
+                    <div className="pt-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Escuchar audio configurado:
+                      </p>
+                      <audio controls src={audioUrl} className="w-full h-10 rounded-lg" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-Play Audio Toggle */}
+                {audioUrl && (
+                  <div className="flex items-center justify-between pt-3 border-t border-[#00AEEF]/10">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">
+                        ¿Reproducir audio automáticamente al abrir la revista?
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        Si está activo, sonará automáticamente (o al primer toque del lector).
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setAutoPlayAudio(!autoPlayAudio)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        autoPlayAudio ? 'bg-[#00AEEF]' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          autoPlayAudio ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
             </Card>
 

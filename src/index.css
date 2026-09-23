@@ -159,3 +159,131 @@
 .glass-dark {
   @apply bg-slate-900/70 backdrop-blur-xl border border-white/10;
 }
+
+/* ==========================================================================
+   Interactive 3D Magazine / Flipbook (Heyzine-like Experience)
+   ========================================================================== */
+
+.stf__parent {
+  position: relative !important;
+  display: block !important;
+  box-sizing: border-box !important;
+  transform: translateZ(0);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  margin: 0 auto;
+}
+
+.stf__parent canvas,
+canvas.stf__canvas {
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+  display: block !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+}
+
+.stf__wrapper {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.stf__block {
+  perspective: 2500px !important;
+}
+
+.stf__item {
+  background-color: #0f172a;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* Hardcover page effect (front & back covers) */
+.stf__item.--hard {
+  background-color: #020617;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.65);
+}
+
+/* Page inner content */
+.magazine-page {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0f172a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.magazine-page img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  background-color: #0f172a;
+}
+
+/* Left page crease shadow (center spine) */
+.page-crease-left {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 40px;
+  background: linear-gradient(to left, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Right page crease shadow (center spine) */
+.page-crease-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40px;
+  background: linear-gradient(to right, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.15) 30%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Hardcover book spine edge effect */
+.cover-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  background: linear-gradient(to right, rgba(255,255,255,0.25) 0%, rgba(0,0,0,0.3) 100%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Realistic paper edge highlight */
+.page-edge-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Ambient glow under the open magazine */
+.magazine-stage-glow {
+  filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 40px rgba(0, 174, 239, 0.08));
+}
+

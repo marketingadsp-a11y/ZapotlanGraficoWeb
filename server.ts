@@ -9,7 +9,38 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+  // Ensure uploads directory exists and is served statically
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const audioUploadsDir = path.join(uploadsDir, 'audio');
+  if (!fs.existsSync(audioUploadsDir)) {
+    fs.mkdirSync(audioUploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
+
+  // Audio Upload endpoint for Magazines / Flipbooks
+  app.post("/api/upload-audio", async (req, res) => {
+    try {
+      const { filename, base64Data } = req.body;
+      if (!base64Data) {
+        return res.status(400).json({ error: "No audio data provided" });
+      }
+      const cleanBase64 = base64Data.includes(';base64,') 
+        ? base64Data.split(';base64,').pop()! 
+        : base64Data;
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      const safeName = `${Date.now()}-${(filename || 'audio.mp3').replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(audioUploadsDir, safeName);
+      fs.writeFileSync(filePath, buffer);
+      const audioUrl = `/uploads/audio/${safeName}`;
+      res.json({ success: true, url: audioUrl });
+    } catch (err: any) {
+      console.error("Audio upload error:", err);
+      res.status(500).json({ error: "Failed to upload audio", message: err.message });
+    }
+  });
 
   // API Routes
   app.post("/api/import-fb", async (req, res) => {
