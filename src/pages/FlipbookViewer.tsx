@@ -617,9 +617,25 @@ export default function FlipbookViewer() {
       setOrientation(initialOrient);
       updateBookCentering(currentPageRef.current || 0, flipbook.pageUrls.length, initialOrient === 'landscape');
 
-      // Enhanced cover spread: replace blank white left page with the brand logo & editorial backdrop
+      // Enable High-DPI Retina buffer on the internal canvas for ultra-sharp HD page rendering
+      const ui = (pageFlip as any).ui;
       const render = (pageFlip as any).render;
-      if (render && render.drawFrame) {
+
+      if (ui && render) {
+        const canvas = ui.getCanvas() as HTMLCanvasElement;
+        if (canvas) {
+          const applyRetinaBuffer = () => {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+            canvas.width = Math.round(totalBookWidth * dpr);
+            canvas.height = Math.round(pageHeight * dpr);
+            canvas.style.width = `${totalBookWidth}px`;
+            canvas.style.height = `${pageHeight}px`;
+          };
+
+          ui.resizeCanvas = applyRetinaBuffer;
+          applyRetinaBuffer();
+        }
+
         const logoImg = new Image();
         if (settings.logoUrl) {
           logoImg.crossOrigin = 'anonymous';
@@ -628,13 +644,25 @@ export default function FlipbookViewer() {
 
         const originalDrawFrame = render.drawFrame.bind(render);
         render.drawFrame = function () {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+          const ctx = this.ctx as CanvasRenderingContext2D;
+          if (!ctx) return;
+
+          // Force maximum quality smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          ctx.save();
+          ctx.scale(dpr, dpr);
           originalDrawFrame();
 
           // When in landscape mode and there is no left page (cover view), paint the brand presentation
           if (this.orientation !== 'portrait' && this.leftPage == null) {
             const rect = this.getRect();
-            const ctx = this.ctx as CanvasRenderingContext2D;
-            if (!ctx || !rect) return;
+            if (!rect) {
+              ctx.restore();
+              return;
+            }
 
             ctx.save();
 
@@ -711,6 +739,8 @@ export default function FlipbookViewer() {
               this.flippingPage.draw();
             }
           }
+
+          ctx.restore();
         };
       }
     } catch (err) {
@@ -911,14 +941,45 @@ export default function FlipbookViewer() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f8fafc] text-slate-800 gap-4">
-        <div className="relative">
-          <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent shadow-xs" />
-          <Sparkles className="h-6 w-6 text-[#00AEEF] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] text-slate-800 p-6 select-none">
+        {/* Soft background aura */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00AEEF]/10 rounded-full blur-[90px] pointer-events-none" />
+
+        <div className="relative flex flex-col items-center gap-5 z-10">
+          {/* Logo Card with elegant pulsing halo */}
+          <div className="relative p-6 rounded-3xl bg-white/90 shadow-xl shadow-slate-300/40 border border-slate-200/80 backdrop-blur-xl flex items-center justify-center min-w-[170px] min-h-[96px]">
+            {settings.logoUrl ? (
+              <img 
+                src={settings.logoUrl} 
+                alt="Logo Zapotlán Gráfico" 
+                className="h-12 sm:h-14 max-w-[200px] object-contain drop-shadow-xs animate-pulse" 
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="text-center">
+                <span className="text-base sm:text-lg font-black tracking-tight text-[#00AEEF] uppercase block">
+                  ZAPOTLÁN
+                </span>
+                <span className="text-xs sm:text-sm font-black tracking-widest text-slate-900 uppercase block -mt-1">
+                  GRÁFICO
+                </span>
+              </div>
+            )}
+
+            {/* Glowing ring animation around the logo */}
+            <span className="absolute -inset-1 rounded-[28px] border-2 border-[#00AEEF]/30 animate-ping opacity-20 pointer-events-none" />
+          </div>
+
+          {/* Slim Loading Progress Line */}
+          <div className="flex flex-col items-center gap-2 mt-1">
+            <div className="w-36 h-1 bg-slate-200 rounded-full overflow-hidden relative">
+              <div className="h-full w-full bg-gradient-to-r from-[#00AEEF] via-[#00c6ff] to-[#00AEEF] rounded-full animate-pulse" />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-mono">
+              Abriendo revista digital...
+            </p>
+          </div>
         </div>
-        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-          Abriendo revista digital...
-        </p>
       </div>
     );
   }
