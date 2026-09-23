@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { 
@@ -55,11 +55,11 @@ export default function FlipbookViewer() {
   const navigate = useNavigate();
   const { settings } = useSettings();
   
-  // Try to find the flipbook in the local dataCache first for instant zero-lag loading
+  // Try to find the flipbook in the local dataCache first for instant zero-lag loading (matching either slug or id)
   const initialFlipbookValue = id ? (
-    dataCache.activeFlipbook?.id === id 
+    dataCache.activeFlipbook && (dataCache.activeFlipbook.slug === id || dataCache.activeFlipbook.id === id)
       ? dataCache.activeFlipbook 
-      : (dataCache.flipbooks.find(f => f.id === id) || null)
+      : (dataCache.flipbooks.find(f => f.slug === id || f.id === id) || null)
   ) : null;
   
   const [flipbook, setFlipbook] = useState<Flipbook | null>(initialFlipbookValue);
@@ -91,13 +91,13 @@ export default function FlipbookViewer() {
   const bookHostRef = useRef<HTMLDivElement>(null);
   const pageFlipInstanceRef = useRef<PageFlip | null>(null);
 
-  // Fetch flipbook data from Firestore
+  // Fetch flipbook data from Firestore (supports both slug and direct document id)
   useEffect(() => {
     if (!id) return;
 
     const fetchDetail = async () => {
       try {
-        const cached = dataCache.flipbooks.find(f => f.id === id);
+        const cached = dataCache.flipbooks.find(f => f.slug === id || f.id === id);
         if (cached) {
           setFlipbook(cached);
           setTotalPages(cached.pageUrls.length);
@@ -107,21 +107,49 @@ export default function FlipbookViewer() {
           setLoading(false);
         }
 
-        const docRef = doc(db, 'flipbooks', id);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const data = { id: docSnap.id, ...docSnap.data() } as Flipbook;
-          setFlipbook(data);
-          setTotalPages(data.pageUrls.length);
-          if (data.autoPlayDefault) {
+        let foundDoc: Flipbook | null = null;
+        let foundRef: any = null;
+
+        // 1. Try querying by slug first
+        try {
+          const qSlug = query(collection(db, 'flipbooks'), where('slug', '==', id), limit(1));
+          const snapSlug = await getDocs(qSlug);
+          if (!snapSlug.empty) {
+            const first = snapSlug.docs[0];
+            foundDoc = { id: first.id, ...first.data() } as Flipbook;
+            foundRef = first.ref;
+          }
+        } catch (slugErr) {
+          console.warn("Could not query flipbook by slug:", slugErr);
+        }
+
+        // 2. If not found by slug, fallback to querying directly by document ID
+        if (!foundDoc) {
+          try {
+            const docRef = doc(db, 'flipbooks', id);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              foundDoc = { id: docSnap.id, ...docSnap.data() } as Flipbook;
+              foundRef = docRef;
+            }
+          } catch (idErr) {
+            console.warn("Could not query flipbook by doc id:", idErr);
+          }
+        }
+
+        if (foundDoc) {
+          setFlipbook(foundDoc);
+          setTotalPages(foundDoc.pageUrls?.length || 0);
+          if (foundDoc.autoPlayDefault) {
             setIsAutoPlayEnabled(true);
           }
           
           // Increment views metric asynchronously
-          updateDoc(docRef, {
-            views: increment(1)
-          }).catch(err => console.error("Could not increment views:", err));
+          if (foundRef) {
+            updateDoc(foundRef, {
+              views: increment(1)
+            }).catch(err => console.error("Could not increment views:", err));
+          }
 
         } else if (!cached) {
           toast.error("La revista solicitada no existe.");
@@ -137,6 +165,51 @@ export default function FlipbookViewer() {
 
     fetchDetail();
   }, [id, navigate]);
+
+  // Dynamic OpenGraph and SEO tags on client side
+  useEffect(() => {
+    if (!flipbook) return;
+    const previousTitle = document.title;
+    document.title = `${flipbook.title} | Revista Zapotlán Gráfico`;
+
+    const setMetaProperty = (prop: string, content: string) => {
+      let el = document.querySelector(`meta[property="${prop}"]`) as HTMLMetaElement;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('property', prop);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    const setMetaName = (name: string, content: string) => {
+      let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('name', name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    const cover = flipbook.coverUrl || (flipbook.pageUrls && flipbook.pageUrls[0]) || '';
+    const desc = flipbook.description || 'Lee la edición digital interactiva de Zapotlán Gráfico.';
+    const shareUrl = `${window.location.origin}/revista/${flipbook.slug || flipbook.id}`;
+
+    setMetaProperty('og:title', `${flipbook.title} | Zapotlán Gráfico`);
+    setMetaProperty('og:description', desc);
+    if (cover) setMetaProperty('og:image', cover);
+    setMetaProperty('og:url', shareUrl);
+    setMetaProperty('og:type', 'article');
+    setMetaName('description', desc);
+    setMetaName('twitter:title', `${flipbook.title} | Zapotlán Gráfico`);
+    setMetaName('twitter:description', desc);
+    if (cover) setMetaName('twitter:image', cover);
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [flipbook]);
 
   // Sound toggle handler (flip sound effect)
   const handleToggleSound = () => {
@@ -955,8 +1028,26 @@ export default function FlipbookViewer() {
   }, [isFullscreen]);
 
   // Share magazine link
-  const handleShareUrl = () => {
-    const shareUrl = window.location.href;
+  const handleShareUrl = async () => {
+    const canonicalSlug = flipbook?.slug || flipbook?.id || id;
+    const shareUrl = `${window.location.origin}/revista/${canonicalSlug}`;
+    const shareTitle = flipbook?.title || 'Revista Digital - Zapotlán Gráfico';
+    const shareText = flipbook?.description || 'Lee la edición interactiva de nuestra revista digital en Zapotlán Gráfico.';
+
+    // Web Share API nativa para celulares (WhatsApp, Facebook, Instagram, etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
       toast.success("¡Enlace de la revista copiado al portapapeles!");

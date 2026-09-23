@@ -893,6 +893,117 @@ async function startServer() {
       }
     });
 
+    // Helper to fetch magazine / flipbook details from Firestore REST API
+    const getMagazineDetails = async (slugOrId: string) => {
+      try {
+        const queryUrl = `https://firestore.googleapis.com/v1/projects/zapotlan-grafico-web/databases/(default)/documents:runQuery`;
+        const query = {
+          structuredQuery: {
+            from: [{ collectionId: 'flipbooks' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'slug' },
+                op: 'EQUAL',
+                value: { stringValue: slugOrId }
+              }
+            },
+            limit: 1
+          }
+        };
+
+        const response = await axios.post(queryUrl, query, { timeout: 4000 });
+        const results = response.data;
+        let doc: any = null;
+
+        if (Array.isArray(results) && results[0] && results[0].document) {
+          doc = results[0].document;
+        } else {
+          // Fallback to fetch by direct document ID if not found by slug
+          try {
+            const docUrl = `https://firestore.googleapis.com/v1/projects/zapotlan-grafico-web/databases/(default)/documents/flipbooks/${encodeURIComponent(slugOrId)}`;
+            const directResp = await axios.get(docUrl, { timeout: 4000 });
+            if (directResp.data && directResp.data.fields) {
+              doc = directResp.data;
+            }
+          } catch (docErr: any) {
+            // Document ID not found either
+          }
+        }
+
+        if (doc && doc.fields) {
+          const fields = doc.fields;
+          const firstPageUrl = fields.pageUrls?.arrayValue?.values?.[0]?.stringValue || "";
+          const coverUrl = fields.coverUrl?.stringValue || firstPageUrl || "";
+
+          return {
+            title: fields.title?.stringValue || "Revista Digital",
+            description: fields.description?.stringValue || "Edición interactiva de la revista digital de Zapotlán Gráfico.",
+            coverUrl: coverUrl,
+            slug: fields.slug?.stringValue || slugOrId
+          };
+        }
+      } catch (err: any) {
+        console.error("Error fetching magazine details for dynamic meta tags:", err.message);
+      }
+      return null;
+    };
+
+    // Helper to inject magazine meta tags into index.html
+    const injectMagazineMetaTags = (html: string, mag: any, reqUrl: string) => {
+      if (!mag) return html;
+
+      const title = (mag.title || "Revista Digital").replace(/"/g, '&quot;');
+      const desc = (mag.description || "Lee la edición digital interactiva de Zapotlán Gráfico.").replace(/"/g, '&quot;');
+      const cover = mag.coverUrl || "https://zapotlangrafico.com/logo.png";
+      const fullUrl = `https://zapotlangrafico.com${reqUrl}`;
+
+      const tags = `
+  <title>${title} | Revista Zapotlán Gráfico</title>
+  <meta name="description" content="${desc}" />
+  <meta property="og:site_name" content="Zapotlán Gráfico" />
+  <meta property="og:title" content="${title} | Revista Zapotlán Gráfico" />
+  <meta property="og:description" content="${desc}" />
+  <meta property="og:image" content="${cover}" />
+  <meta property="og:image:secure_url" content="${cover}" />
+  <meta property="og:image:alt" content="Portada de ${title}" />
+  <meta property="og:url" content="${fullUrl}" />
+  <meta property="og:type" content="article" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${title} | Revista Zapotlán Gráfico" />
+  <meta name="twitter:description" content="${desc}" />
+  <meta name="twitter:image" content="${cover}" />
+`;
+
+      let output = html;
+      // Replace existing title if any
+      if (output.includes("<title>")) {
+        output = output.replace(/<title>[^<]*<\/title>/, "");
+      }
+      // Insert right before </head>
+      output = output.replace("</head>", `${tags}</head>`);
+      return output;
+    };
+
+    // Intercept magazine route to inject dynamic SEO/OpenGraph tags for Facebook, WhatsApp, etc.
+    app.get('/revista/:slugOrId', async (req, res) => {
+      const { slugOrId } = req.params;
+      const indexHtmlPath = path.join(distPath, 'index.html');
+      
+      try {
+        let html = fs.readFileSync(indexHtmlPath, 'utf-8');
+        const mag = await getMagazineDetails(slugOrId);
+        
+        if (mag) {
+          html = injectMagazineMetaTags(html, mag, req.originalUrl);
+        }
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(html);
+      } catch (e: any) {
+        console.error("Magazine SEO pre-rendering error:", e.message);
+        return res.sendFile(indexHtmlPath);
+      }
+    });
+
     // Default route for SPA
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

@@ -34,13 +34,17 @@ import {
   Heart,
   Newspaper,
   Compass,
-  Sparkles
+  Sparkles,
+  Link2,
+  Share2,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
+import { cleanSlug, isMagazineSlugTaken, generateUniqueMagazineSlug } from '@/lib/slugHelper';
 import { MAGAZINE_CATEGORIES } from './FlipbookMaker';
 
 interface Flipbook {
@@ -67,6 +71,7 @@ export default function FlipbookList() {
   // Edit Modal State
   const [editingFlipbook, setEditingFlipbook] = useState<Flipbook | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editSlug, setEditSlug] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('Cultura');
   const [editCustomCategory, setEditCustomCategory] = useState('');
@@ -112,6 +117,7 @@ export default function FlipbookList() {
   const handleOpenEdit = (fb: Flipbook) => {
     setEditingFlipbook(fb);
     setEditTitle(fb.title || '');
+    setEditSlug(fb.slug || cleanSlug(fb.title || ''));
     setEditDescription(fb.description || '');
     const cat = fb.category || 'Cultura';
     const isKnown = MAGAZINE_CATEGORIES.some(c => c.name.toLowerCase() === cat.toLowerCase());
@@ -127,6 +133,16 @@ export default function FlipbookList() {
     setEditAutoPlayInterval(fb.autoPlayInterval || 5);
     setEditAudioUrl(fb.audioUrl || '');
     setEditAutoPlayAudio(fb.autoPlayAudio || false);
+  };
+
+  const handleRegenerateSlug = async () => {
+    if (!editTitle.trim()) {
+      toast.error("Ingresa primero un título para generar el enlace");
+      return;
+    }
+    const freshSlug = await generateUniqueMagazineSlug(editTitle.trim(), editingFlipbook?.id);
+    setEditSlug(freshSlug);
+    toast.success(`Nuevo enlace generado: /revista/${freshSlug}`);
   };
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,9 +208,18 @@ export default function FlipbookList() {
     setSavingEdit(true);
     try {
       const finalCategory = (editCategory === 'Otro' ? editCustomCategory : editCategory).trim() || 'Cultura';
+      
+      // Asegurar slug limpio y único
+      let finalSlug = cleanSlug(editSlug.trim() || editTitle.trim());
+      const isTaken = await isMagazineSlugTaken(finalSlug, editingFlipbook.id);
+      if (isTaken) {
+        finalSlug = await generateUniqueMagazineSlug(finalSlug, editingFlipbook.id);
+      }
+
       const docRef = doc(db, 'flipbooks', editingFlipbook.id);
       await updateDoc(docRef, {
         title: editTitle.trim(),
+        slug: finalSlug,
         description: editDescription.trim(),
         category: finalCategory,
         coverUrl: editCoverUrl.trim(),
@@ -311,13 +336,24 @@ export default function FlipbookList() {
                       {/* Floating Link Shortcuts */}
                       <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                         <Link 
-                          to={`/revista/${fb.id}`}
+                          to={`/revista/${fb.slug || fb.id}`}
                           target="_blank"
                           className="h-12 w-12 rounded-xl bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white transition-all flex items-center justify-center shadow-lg cursor-pointer"
                           title="Abrir en pestaña nueva"
                         >
                           <ExternalLink className="h-5 w-5" />
                         </Link>
+                        <button 
+                          onClick={() => {
+                            const url = `${window.location.origin}/revista/${fb.slug || fb.id}`;
+                            navigator.clipboard.writeText(url);
+                            toast.success("¡Enlace copiado al portapapeles!");
+                          }}
+                          className="h-12 w-12 rounded-xl bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white transition-all flex items-center justify-center shadow-lg cursor-pointer"
+                          title="Copiar enlace amigable"
+                        >
+                          <Share2 className="h-5 w-5" />
+                        </button>
                         <button 
                           onClick={() => handleOpenEdit(fb)}
                           className="h-12 w-12 rounded-xl bg-white text-slate-900 hover:bg-[#FFF200] hover:text-slate-950 transition-all flex items-center justify-center shadow-lg cursor-pointer"
@@ -352,6 +388,10 @@ export default function FlipbookList() {
                             {fb.description}
                           </p>
                         )}
+                        <div className="pt-1 flex items-center gap-1.5 text-[11px] font-mono text-slate-400 truncate">
+                          <Link2 className="h-3 w-3 text-[#00AEEF] shrink-0" />
+                          <span className="truncate">/revista/{fb.slug || fb.id}</span>
+                        </div>
                       </div>
 
                       {/* Sub footer stats + Actions */}
@@ -362,6 +402,19 @@ export default function FlipbookList() {
                         </div>
 
                         <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const url = `${window.location.origin}/revista/${fb.slug || fb.id}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success("¡Enlace copiado al portapapeles!");
+                            }}
+                            className="h-10 w-10 text-slate-400 hover:text-[#00AEEF] hover:bg-sky-50 rounded-xl transition-colors cursor-pointer"
+                            title="Copiar enlace amigable"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -439,6 +492,39 @@ export default function FlipbookList() {
                       className="h-12 rounded-xl border-slate-200"
                       required
                     />
+                  </div>
+
+                  {/* Enlace Amigable (Slug URL) */}
+                  <div className="space-y-1.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <Link2 className="h-3.5 w-3.5 text-[#00AEEF]" />
+                        Enlace Amigable (Slug)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleRegenerateSlug}
+                        className="text-[10px] font-bold text-[#00AEEF] hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Regenerar slug a partir del título"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Generar desde título
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0">
+                        /revista/
+                      </span>
+                      <Input
+                        value={editSlug}
+                        onChange={(e) => setEditSlug(cleanSlug(e.target.value))}
+                        placeholder="ej. edicion-3-2025"
+                        className="h-10 rounded-xl border-slate-200 font-mono text-xs font-bold text-slate-800 bg-white"
+                      />
+                    </div>
+                    <p className="text-[10px] font-medium text-slate-400">
+                      Este será el link amigable para compartir en WhatsApp, Facebook e Instagram.
+                    </p>
                   </div>
 
                   {/* Categoría Editorial */}

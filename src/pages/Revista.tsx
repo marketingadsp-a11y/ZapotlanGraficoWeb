@@ -176,10 +176,27 @@ export default function Revista() {
     });
   }, [flipbooks, activeCategory]);
 
-  const handleShare = (fb: Flipbook, e: React.MouseEvent) => {
+  const handleShare = async (fb: Flipbook, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const shareUrl = `${window.location.origin}/revista/${fb.id}`;
+    const shareUrl = `${window.location.origin}/revista/${fb.slug || fb.id}`;
+    const shareTitle = `${fb.title} | Revista Zapotlán Gráfico`;
+    const shareText = fb.description || 'Lee la edición digital interactiva de Zapotlán Gráfico.';
+
+    // Intentar Web Share API en móviles/tablets para compartir directo a WhatsApp, Instagram, FB, etc.
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
       toast.success("¡Enlace de la revista copiado al portapapeles!");
@@ -321,7 +338,7 @@ export default function Revista() {
                     >
                       {/* COLUMNA IZQUIERDA: Portada de la Revista */}
                       <Link
-                        to={`/revista/${fb.id}`}
+                        to={`/revista/${fb.slug || fb.id}`}
                         onClick={() => handleOpenMagazine(fb)}
                         className="relative w-full sm:w-[150px] md:w-[165px] lg:w-[175px] shrink-0 aspect-[1/1.34] rounded-xl overflow-hidden shadow-md shadow-slate-950/15 group-hover:shadow-xl transition-all duration-300 bg-slate-950 block touch-manipulation active:scale-[0.98]"
                       >
@@ -381,7 +398,7 @@ export default function Revista() {
 
                           {/* Título de la Revista */}
                           <Link 
-                            to={`/revista/${fb.id}`}
+                            to={`/revista/${fb.slug || fb.id}`}
                             onClick={() => handleOpenMagazine(fb)}
                             className="touch-manipulation"
                           >
@@ -400,7 +417,7 @@ export default function Revista() {
                         <div className="flex items-center justify-between mt-4 pt-2">
                           {/* Botón Azul Leer con micro-feedback */}
                           <Link
-                            to={`/revista/${fb.id}`}
+                            to={`/revista/${fb.slug || fb.id}`}
                             onClick={() => handleOpenMagazine(fb)}
                             className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-white font-bold text-xs sm:text-sm shadow-md transition-all touch-manipulation active:scale-95 ${
                               openingId === fb.id

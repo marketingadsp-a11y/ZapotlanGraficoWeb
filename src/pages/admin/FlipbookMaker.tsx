@@ -36,6 +36,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
+import { generateUniqueMagazineSlug } from '@/lib/slugHelper';
 
 export const MAGAZINE_CATEGORIES = [
   { name: 'Cultura', icon: Leaf, color: 'text-emerald-600', activeBg: 'bg-emerald-500 text-white shadow-emerald-500/25', border: 'border-emerald-200' },
@@ -326,12 +327,7 @@ export default function FlipbookMaker() {
           // Complete uploading step, save to database
           setCurrentStep('Páginas subidas con éxito. Creando publicación en base de datos...');
           
-          const publicationSlug = title
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)+/g, '');
+          const publicationSlug = await generateUniqueMagazineSlug(title.trim());
 
           const finalCategory = (category === 'Otro' ? customCategory : category).trim() || 'Cultura';
 
@@ -341,7 +337,7 @@ export default function FlipbookMaker() {
             category: finalCategory,
             coverUrl: coverUrl || currentCoverUrl,
             pageUrls: pageUrlsList,
-            slug: publicationSlug + '-' + Math.floor(Math.random() * 1000),
+            slug: publicationSlug,
             createdAt: Timestamp.now(),
             views: 0,
             autoPlayDefault,
