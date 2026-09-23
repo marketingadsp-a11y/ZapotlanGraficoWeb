@@ -210,6 +210,8 @@ export default function FlipbookViewer() {
     };
   }, [flipbook?.audioUrl, flipbook?.autoPlayAudio]);
 
+  const [isInteracting, setIsInteracting] = useState(false);
+
   // Zoom handlers
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.25, 3.5));
   const handleZoomOut = () => {
@@ -250,111 +252,164 @@ export default function FlipbookViewer() {
     lastTapPos: { x: 0, y: 0 },
   });
 
-  // Touch listeners on stage for pinch-to-zoom, 1-finger pan when zoomed, and double-tap
+  // Touch listeners in CAPTURE phase so pinch-to-zoom is never swallowed by PageFlip
   useEffect(() => {
     const stage = stageContainerRef.current;
     if (!stage) return;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        // Pinch gesture started
+      // 2 or more fingers: PINCH TO ZOOM
+      if (e.touches.length >= 2) {
+        // Cancel any ongoing fold or page-drag in PageFlip immediately
+        if (pageFlipInstanceRef.current) {
+          try {
+            (pageFlipInstanceRef.current as any).userStop({ x: 0, y: 0 }, false);
+          } catch {}
+        }
+
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
         touchGestureRef.current.mode = 'pinch';
-        touchGestureRef.current.initialDist = dist;
+        touchGestureRef.current.initialDist = Math.max(dist, 10);
         touchGestureRef.current.initialZoom = zoomLevelRef.current;
         touchGestureRef.current.startPan = { ...panOffsetRef.current };
-        setIsPanning(false);
-        if (e.cancelable) e.preventDefault();
-      } else if (e.touches.length === 1) {
+        setIsInteracting(true);
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      // 1 finger touch
+      if (e.touches.length === 1) {
         const t = e.touches[0];
         const now = Date.now();
         const { lastTapTime, lastTapPos } = touchGestureRef.current;
         const distFromPrev = Math.hypot(t.clientX - lastTapPos.x, t.clientY - lastTapPos.y);
 
-        // Double tap detection (< 320ms and < 30px movement)
-        if (now - lastTapTime < 320 && distFromPrev < 30) {
+        // Double tap detection (< 300ms, < 25px displacement)
+        if (now - lastTapTime < 300 && distFromPrev < 25) {
           touchGestureRef.current.lastTapTime = 0;
-          if (zoomLevelRef.current > 1) {
-            // Reset zoom
+          if (zoomLevelRef.current > 1.05) {
             setZoomLevel(1);
             setPanOffset({ x: 0, y: 0 });
-            toast.info("Zoom restablecido", { duration: 1000 });
+            toast.info("Tamaño normal", { duration: 1000 });
           } else {
-            // Zoom in to 2.2x centered around tapped location
             setZoomLevel(2.2);
             const rect = stage.getBoundingClientRect();
             const tapOffsetX = t.clientX - (rect.left + rect.width / 2);
             const tapOffsetY = t.clientY - (rect.top + rect.height / 2);
             setPanOffset({
-              x: Math.max(-260, Math.min(260, -tapOffsetX * 1.1)),
-              y: Math.max(-260, Math.min(260, -tapOffsetY * 1.1)),
+              x: Math.max(-280, Math.min(280, -tapOffsetX * 1.1)),
+              y: Math.max(-320, Math.min(320, -tapOffsetY * 1.1)),
             });
             toast.success("Zoom 2.2x (Doble toque)", { duration: 1000 });
           }
-          if (e.cancelable) e.preventDefault();
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
           return;
         }
 
         touchGestureRef.current.lastTapTime = now;
         touchGestureRef.current.lastTapPos = { x: t.clientX, y: t.clientY };
 
-        if (zoomLevelRef.current > 1) {
+        // When already zoomed in (>1.05), 1 finger is used for PANNING/READING
+        if (zoomLevelRef.current > 1.05) {
           touchGestureRef.current.mode = 'pan';
           touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
           touchGestureRef.current.startPan = { ...panOffsetRef.current };
-          setIsPanning(true);
-          if (e.cancelable) e.preventDefault();
-        } else {
-          touchGestureRef.current.mode = 'none';
+          setIsInteracting(true);
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return;
         }
+
+        // At standard 1x, let PageFlip receive the single touch to turn pages
+        touchGestureRef.current.mode = 'none';
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchGestureRef.current.mode === 'pinch') {
-        if (e.cancelable) e.preventDefault();
+      // Handle Pinch
+      if (e.touches.length >= 2 && touchGestureRef.current.mode === 'pinch') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-        if (touchGestureRef.current.initialDist > 0) {
+
+        if (touchGestureRef.current.initialDist > 5) {
           const ratio = dist / touchGestureRef.current.initialDist;
-          const nextZoom = Math.min(Math.max(touchGestureRef.current.initialZoom * ratio, 1), 3.5);
+          let nextZoom = touchGestureRef.current.initialZoom * ratio;
+          nextZoom = Math.min(Math.max(nextZoom, 0.95), 3.8);
           setZoomLevel(nextZoom);
+
           if (nextZoom <= 1.02) {
             setPanOffset({ x: 0, y: 0 });
           }
         }
-      } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pan' && zoomLevelRef.current > 1) {
-        if (e.cancelable) e.preventDefault();
+        return;
+      }
+
+      // Handle Pan when zoomed
+      if (e.touches.length === 1 && (touchGestureRef.current.mode === 'pan' || zoomLevelRef.current > 1.05)) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
         const t = e.touches[0];
         const dx = t.clientX - touchGestureRef.current.startTouch.x;
         const dy = t.clientY - touchGestureRef.current.startTouch.y;
+
         const rect = stage.getBoundingClientRect();
-        const maxBoundX = (zoomLevelRef.current - 1) * (rect.width * 0.65);
-        const maxBoundY = (zoomLevelRef.current - 1) * (rect.height * 0.65);
+        const maxBoundX = (zoomLevelRef.current - 1) * (rect.width * 0.7);
+        const maxBoundY = (zoomLevelRef.current - 1) * (rect.height * 0.7);
 
         const newX = Math.max(-maxBoundX, Math.min(maxBoundX, touchGestureRef.current.startPan.x + dx));
         const newY = Math.max(-maxBoundY, Math.min(maxBoundY, touchGestureRef.current.startPan.y + dy));
+
         setPanOffset({ x: newX, y: newY });
+        return;
+      }
+
+      // If zoomLevel > 1.05, always prevent PageFlip from intercepting moves
+      if (zoomLevelRef.current > 1.05) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
+        setIsInteracting(false);
         touchGestureRef.current.mode = 'none';
-        setIsPanning(false);
+
         if (zoomLevelRef.current < 1.05) {
           setZoomLevel(1);
           setPanOffset({ x: 0, y: 0 });
+        } else if (zoomLevelRef.current > 3.5) {
+          setZoomLevel(3.5);
         }
       } else if (e.touches.length === 1 && touchGestureRef.current.mode === 'pinch') {
-        touchGestureRef.current.mode = zoomLevelRef.current > 1 ? 'pan' : 'none';
-        const t = e.touches[0];
-        touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
-        touchGestureRef.current.startPan = { ...panOffsetRef.current };
-        setIsPanning(zoomLevelRef.current > 1);
+        if (zoomLevelRef.current > 1.05) {
+          touchGestureRef.current.mode = 'pan';
+          const t = e.touches[0];
+          touchGestureRef.current.startTouch = { x: t.clientX, y: t.clientY };
+          touchGestureRef.current.startPan = { ...panOffsetRef.current };
+        } else {
+          touchGestureRef.current.mode = 'none';
+          setZoomLevel(1);
+          setPanOffset({ x: 0, y: 0 });
+          setIsInteracting(false);
+        }
       }
     };
 
@@ -371,17 +426,18 @@ export default function FlipbookViewer() {
       }
     };
 
-    stage.addEventListener('touchstart', handleTouchStart, { passive: false });
-    stage.addEventListener('touchmove', handleTouchMove, { passive: false });
-    stage.addEventListener('touchend', handleTouchEnd, { passive: false });
-    stage.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    // Register with capture: true so we intercept 2-finger touches BEFORE PageFlip
+    stage.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { capture: true, passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { capture: true, passive: false });
     stage.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      stage.removeEventListener('touchstart', handleTouchStart);
-      stage.removeEventListener('touchmove', handleTouchMove);
-      stage.removeEventListener('touchend', handleTouchEnd);
-      stage.removeEventListener('touchcancel', handleTouchEnd);
+      stage.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      window.removeEventListener('touchmove', handleTouchMove, { capture: true });
+      window.removeEventListener('touchend', handleTouchEnd, { capture: true });
+      window.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
       stage.removeEventListener('wheel', handleWheel);
     };
   }, []);
@@ -1003,9 +1059,9 @@ export default function FlipbookViewer() {
           style={{
             transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0px) scale(${zoomLevel})`,
             transformOrigin: 'center center',
-            transition: isPanning ? 'none' : 'transform 0.15s ease-out',
+            transition: (isPanning || isInteracting) ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1)',
           }}
-          className="relative w-full h-full flex items-center justify-center magazine-stage-glow select-none"
+          className="relative w-full h-full flex items-center justify-center magazine-stage-glow select-none touch-none"
         >
           {/* Host element where PageFlip creates and manages pages (pointer-events disabled during zoom so drag pans the page instead of turning) */}
           <div 
@@ -1063,10 +1119,9 @@ export default function FlipbookViewer() {
                         alt={`Miniatura Pág. ${i + 1}`} 
                         className="w-full h-full object-cover pointer-events-none" 
                         loading="lazy"
-                        referrerPolicy="no-referrer"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center pb-1">
-                        <span className="font-mono font-bold text-[10px] text-white">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-center p-1">
+                        <span className="text-[9px] font-black font-mono text-white/90">
                           {i === 0 ? "Portada" : i === totalPages - 1 ? "Atrás" : i + 1}
                         </span>
                       </div>
@@ -1110,6 +1165,25 @@ export default function FlipbookViewer() {
 
           {/* Mini separator */}
           <div className="h-4 w-px bg-white/15 my-auto" />
+
+          {/* Zoom Toggle on Mobile */}
+          <button
+            onClick={() => {
+              if (zoomLevel > 1.05) {
+                handleResetZoom();
+                toast.info("Tamaño normal");
+              } else {
+                setZoomLevel(2.0);
+                toast.success("Zoom 2.0x activado");
+              }
+            }}
+            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
+              zoomLevel > 1.05 ? "bg-[#FFF200] text-slate-950 font-bold shadow-md shadow-[#FFF200]/30" : "bg-white/10"
+            }`}
+            title={zoomLevel > 1.05 ? "Restablecer Zoom" : "Acercar Zoom"}
+          >
+            {zoomLevel > 1.05 ? <ZoomOut className="h-3.5 w-3.5" /> : <ZoomIn className="h-3.5 w-3.5" />}
+          </button>
 
           {/* Thumbnails Toggle */}
           <button
