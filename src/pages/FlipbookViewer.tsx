@@ -713,8 +713,8 @@ export default function FlipbookViewer() {
 
             // Draw brand logo or fallback styled typography
             if (logoImg.complete && logoImg.naturalWidth > 0) {
-              const maxW = pW * 0.72;
-              const maxH = pH * 0.36;
+              const maxW = pW * 0.84;
+              const maxH = pH * 0.46;
               const scale = Math.min(maxW / logoImg.naturalWidth, maxH / logoImg.naturalHeight);
               const drawW = logoImg.naturalWidth * scale;
               const drawH = logoImg.naturalHeight * scale;
@@ -1013,28 +1013,28 @@ export default function FlipbookViewer() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00AEEF]/15 rounded-full blur-[90px] pointer-events-none" />
 
             <div className="relative flex flex-col items-center gap-5 z-10">
-              {/* Logo Card with elegant pulsing halo */}
-              <div className="relative p-6 rounded-3xl bg-white/95 shadow-2xl shadow-slate-300/50 border border-slate-200/90 backdrop-blur-2xl flex items-center justify-center min-w-[180px] min-h-[100px]">
+              {/* Logo Card with elegant pulsing halo (2x-3x bigger) */}
+              <div className="relative p-7 sm:p-10 rounded-3xl bg-white/95 shadow-2xl shadow-slate-300/50 border border-slate-200/90 backdrop-blur-2xl flex items-center justify-center min-w-[260px] sm:min-w-[360px] min-h-[140px] sm:min-h-[180px]">
                 {settings.logoUrl ? (
                   <img 
                     src={settings.logoUrl} 
                     alt="Logo Zapotlán Gráfico" 
-                    className="h-12 sm:h-14 max-w-[200px] object-contain drop-shadow-xs animate-pulse" 
+                    className="h-24 sm:h-32 md:h-36 max-w-[280px] sm:max-w-[420px] object-contain drop-shadow-md animate-pulse" 
                     referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div className="text-center">
-                    <span className="text-base sm:text-lg font-black tracking-tight text-[#00AEEF] uppercase block">
+                    <span className="text-2xl sm:text-3xl font-black tracking-tight text-[#00AEEF] uppercase block">
                       ZAPOTLÁN
                     </span>
-                    <span className="text-xs sm:text-sm font-black tracking-widest text-slate-900 uppercase block -mt-1">
+                    <span className="text-lg sm:text-xl font-black tracking-widest text-slate-900 uppercase block -mt-1">
                       GRÁFICO
                     </span>
                   </div>
                 )}
 
                 {/* Glowing ring animation around the logo */}
-                <span className="absolute -inset-1 rounded-[28px] border-2 border-[#00AEEF]/30 animate-ping opacity-25 pointer-events-none" />
+                <span className="absolute -inset-2 rounded-[32px] border-2 border-[#00AEEF]/30 animate-ping opacity-25 pointer-events-none" />
               </div>
 
               {/* Title & Slim Loading Progress Line */}
@@ -1060,15 +1060,15 @@ export default function FlipbookViewer() {
 
       {/* Top Header Controls (Light Editorial Modern) - Se oculta en pantalla completa para expandir la revista a 100% */}
       {!isFullscreen && (
-        <header className="h-14 shrink-0 z-30 bg-white/80 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
+        <header className="h-16 sm:h-20 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-3">
             <Link 
               to="/revista"
-              className="flex h-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3 group gap-2 border border-slate-200/60"
+              className="flex h-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3.5 group gap-2 border border-slate-200/60"
               title="Cerrar Revista"
             >
-              <X className="h-4 w-4 text-slate-600 group-hover:text-white transition-colors" />
-              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">
+              <X className="h-4.5 w-4.5 text-slate-600 group-hover:text-white transition-colors" />
+              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">
                 Cerrar
               </span>
             </Link>
@@ -1088,17 +1088,17 @@ export default function FlipbookViewer() {
             </div>
           </div>
 
-          {/* Brand Center Badge */}
-          <div className="flex items-center gap-2">
+          {/* Brand Center Badge - Agrandado 2x a 3x */}
+          <div className="flex items-center justify-center gap-2 px-2">
             {settings.logoUrl ? (
               <img 
                 src={settings.logoUrl} 
-                alt="Logo" 
-                className="h-6 md:h-7 max-w-[140px] object-contain drop-shadow-xs" 
+                alt="Logo Zapotlán Gráfico" 
+                className="h-10 sm:h-13 md:h-16 max-w-[200px] sm:max-w-[290px] md:max-w-[360px] object-contain drop-shadow-sm transition-all" 
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <span className="text-[11px] font-black tracking-tighter uppercase text-[#00AEEF]">
+              <span className="text-sm sm:text-base md:text-lg font-black tracking-tighter uppercase text-[#00AEEF]">
                 ZAPOTLÁN <span className="text-slate-900">GRÁFICO</span>
               </span>
             )}
