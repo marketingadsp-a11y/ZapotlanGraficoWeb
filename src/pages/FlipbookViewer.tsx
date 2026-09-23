@@ -132,6 +132,7 @@ export default function FlipbookViewer() {
 
   // Sound toggle handler (flip sound effect)
   const handleToggleSound = () => {
+    pageSound.unlock();
     const nextMuted = pageSound.toggleMute();
     setIsMuted(nextMuted);
     if (!nextMuted) {
@@ -141,6 +142,23 @@ export default function FlipbookViewer() {
       toast.info("Sonido desactivado");
     }
   };
+
+  // Mobile Web Audio unlock on touchstart / pointerdown / click gestures
+  useEffect(() => {
+    const handleUnlock = () => {
+      pageSound.unlock();
+    };
+    window.addEventListener('touchstart', handleUnlock, { passive: true });
+    window.addEventListener('touchend', handleUnlock, { passive: true });
+    window.addEventListener('pointerdown', handleUnlock, { passive: true });
+    window.addEventListener('click', handleUnlock, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', handleUnlock);
+      window.removeEventListener('touchend', handleUnlock);
+      window.removeEventListener('pointerdown', handleUnlock);
+      window.removeEventListener('click', handleUnlock);
+    };
+  }, []);
 
   // Background Music toggle handler
   const handleToggleMusic = () => {
@@ -292,15 +310,15 @@ export default function FlipbookViewer() {
     const stageWidth = stage ? stage.clientWidth : window.innerWidth;
     const stageHeight = stage ? stage.clientHeight : (window.innerHeight - 120);
 
-    // Margins so the magazine pages never touch or overflow header, footer, or screen edges
-    const padX = stageWidth < 640 ? 16 : 48;
-    const padY = stageWidth < 640 ? 20 : 36;
-
-    const availWidth = Math.max(stageWidth - padX, 260);
-    const availHeight = Math.max(stageHeight - padY, 300);
-
     const isMobile = stageWidth < 768;
     const pageRatio = 1.38; // Typical magazine aspect ratio (height / width)
+
+    // Margins so the magazine pages never touch or overflow header, floating buttons, or screen edges
+    const padX = isMobile ? 12 : 48;
+    const padY = isMobile ? 74 : 36; // Keep 74px on mobile to leave room for the bottom floating dock
+
+    const availWidth = Math.max(stageWidth - padX, 240);
+    const availHeight = Math.max(stageHeight - padY, 280);
 
     let pageWidth = 0;
     let pageHeight = 0;
@@ -652,8 +670,8 @@ export default function FlipbookViewer() {
   if (!flipbook) return null;
 
   return (
-    <div className={`h-screen h-[100dvh] w-full bg-[#090b10] flex flex-col text-white relative select-none overflow-hidden ${
-      isFullscreen ? "fixed inset-0 z-50" : ""
+    <div className={`fixed inset-0 h-[100dvh] w-screen bg-[#090b10] flex flex-col text-white select-none overflow-hidden touch-none ${
+      isFullscreen ? "z-50" : "z-30"
     }`}>
       
       {/* Ambient background lighting aura */}
@@ -772,24 +790,24 @@ export default function FlipbookViewer() {
           cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default'
         }}
       >
-        {/* Subtle desktop navigation overlay buttons */}
+        {/* Navigation overlay buttons (Visibles tanto en Desktop como en Celular) */}
         {zoomLevel <= 1 && currentPage > 0 && (
           <button 
             onClick={handlePrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 items-center justify-center rounded-full bg-slate-900/60 text-white/70 hover:text-white hover:bg-[#00AEEF] hover:scale-105 transition-all backdrop-blur-md border border-white/10 hidden md:flex shadow-xl group cursor-pointer"
-            title="Página Anterior (Flecha Izquierda)"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-slate-950/70 text-white/90 hover:text-white hover:bg-[#00AEEF] active:scale-90 transition-all backdrop-blur-md border border-white/20 flex shadow-2xl group cursor-pointer"
+            title="Página Anterior"
           >
-            <ChevronLeft className="h-6 w-6 transform group-hover:-translate-x-0.5 transition-transform" />
+            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 transform group-hover:-translate-x-0.5 transition-transform" />
           </button>
         )}
 
         {zoomLevel <= 1 && currentPage < totalPages - 1 && (
           <button 
             onClick={handleNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 items-center justify-center rounded-full bg-slate-900/60 text-white/70 hover:text-white hover:bg-[#00AEEF] hover:scale-105 transition-all backdrop-blur-md border border-white/10 hidden md:flex shadow-xl group cursor-pointer"
-            title="Página Siguiente (Flecha Derecha)"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-[#00AEEF]/85 text-white hover:bg-[#00AEEF] active:scale-90 transition-all backdrop-blur-md border border-white/25 flex shadow-2xl shadow-[#00AEEF]/30 group cursor-pointer"
+            title="Página Siguiente"
           >
-            <ChevronRight className="h-6 w-6 transform group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 transform group-hover:translate-x-0.5 transition-transform" />
           </button>
         )}
 
@@ -817,7 +835,7 @@ export default function FlipbookViewer() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 120 }}
               transition={{ duration: 0.25 }}
-              className="absolute inset-x-0 bottom-16 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 p-4 flex flex-col gap-3 max-h-[220px] rounded-t-3xl shadow-2xl"
+              className="absolute inset-x-0 bottom-14 sm:bottom-16 z-40 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 p-3 sm:p-4 flex flex-col gap-3 max-h-[200px] sm:max-h-[220px] rounded-t-3xl shadow-2xl"
             >
               <div className="flex justify-between items-center px-2">
                 <div className="flex items-center gap-2">
@@ -872,8 +890,76 @@ export default function FlipbookViewer() {
 
       </div>
 
-      {/* Floating Bottom Control Bar (Heyzine Layout) */}
-      <footer className="h-16 shrink-0 z-30 bg-slate-950/80 backdrop-blur-xl px-3 sm:px-6 border-t border-white/5 flex items-center justify-between">
+      {/* Mobile Compact Bottom Floating Navigation Dock */}
+      <div className="sm:hidden fixed bottom-3 inset-x-0 z-30 flex justify-center px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+        <div className="pointer-events-auto bg-slate-950/90 backdrop-blur-2xl border border-white/15 rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-2">
+          {/* Previous */}
+          <button
+            onClick={handlePrev}
+            disabled={currentPage === 0}
+            className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none"
+            title="Anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          {/* Page Counter Compact */}
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-200 font-mono px-1 select-none">
+            {currentPage === 0 ? "Portada" : currentPage >= totalPages - 1 ? "Fin" : `${currentPage + 1}/${totalPages}`}
+          </span>
+
+          {/* Next */}
+          <button
+            onClick={handleNext}
+            disabled={currentPage >= totalPages - 1}
+            className="h-8 w-8 rounded-full bg-[#00AEEF] hover:bg-[#00AEEF]/80 disabled:opacity-20 disabled:bg-white/10 flex items-center justify-center text-white shadow-md shadow-[#00AEEF]/30 active:scale-90 transition-all cursor-pointer border-none"
+            title="Siguiente"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+
+          {/* Mini separator */}
+          <div className="h-4 w-px bg-white/15 my-auto" />
+
+          {/* Thumbnails Toggle */}
+          <button
+            onClick={() => setShowThumbnails(!showThumbnails)}
+            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
+              showThumbnails ? "bg-[#00AEEF]" : "bg-white/10"
+            }`}
+            title="Ver Páginas"
+          >
+            <Grid className="h-3.5 w-3.5" />
+          </button>
+
+          {/* AutoPlay Toggle */}
+          <button
+            onClick={() => setIsAutoPlayEnabled(!isAutoPlayEnabled)}
+            className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
+              isAutoPlayEnabled ? "bg-[#FFF200] text-slate-950" : "bg-white/10"
+            }`}
+            title={isAutoPlayEnabled ? "Pausar" : "Auto"}
+          >
+            {isAutoPlayEnabled ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
+
+          {/* Background Audio Toggle (if configured) */}
+          {flipbook.audioUrl && (
+            <button
+              onClick={handleToggleMusic}
+              className={`h-8 w-8 rounded-full flex items-center justify-center text-white active:scale-90 transition-all cursor-pointer border-none ${
+                audioPlaying ? "bg-[#00AEEF] animate-pulse" : "bg-white/10"
+              }`}
+              title={audioPlaying ? "Pausar Música" : "Reproducir Música"}
+            >
+              <Music className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Floating Bottom Control Bar (Heyzine Layout - Desktop/Tablet) */}
+      <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-slate-950/80 backdrop-blur-xl px-3 sm:px-6 border-t border-white/5 items-center justify-between">
         
         {/* Left Controls: Thumbnails & Reset Zoom */}
         <div className="flex items-center gap-1.5 sm:gap-2">
