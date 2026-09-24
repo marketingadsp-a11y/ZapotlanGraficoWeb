@@ -181,16 +181,16 @@ export default function Categories() {
     setNewCategoryCustomUrl('');
   };
 
-  // Auto-suggest gym/fitness icon or revista path
+  // Auto-suggest gym/fitness icon or los anfitriones / revista path
   useEffect(() => {
     if (!editingCategory) {
       const lower = newCategoryName.toLowerCase();
       if (lower.includes('vital') || lower.includes('gym') || lower.includes('fitness') || lower.includes('ejercicio')) {
         setNewCategoryIcon('Dumbbell');
-      } else if (lower.includes('revista')) {
+      } else if (lower.includes('anfitrion') || lower.includes('revista') || lower.includes('periodico')) {
         setNewCategoryIcon('BookOpen');
         if (!newCategoryCustomUrl) {
-          setNewCategoryCustomUrl('/revista');
+          setNewCategoryCustomUrl('/losanfitriones');
         }
       }
     }
@@ -621,7 +621,8 @@ export default function Categories() {
                       <div className="pt-0.5 flex flex-wrap gap-1 items-center">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mr-0.5">Accesos:</span>
                         {[
-                          { path: '/revista', label: 'Revista (/revista)' },
+                          { path: '/losanfitriones', label: 'Los Anfitriones (/losanfitriones)' },
+                          { path: '/periodico', label: 'Periódico (/periodico)' },
                           { path: '/noticias', label: 'Noticias (/noticias)' },
                           { path: '/videos', label: 'Videos (/videos)' },
                           { path: '/facebook', label: 'Facebook (/facebook)' }

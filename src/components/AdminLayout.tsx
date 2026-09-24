@@ -18,7 +18,8 @@ import {
   Users,
   BookOpen,
   FolderOpen,
-  Megaphone
+  Megaphone,
+  Compass
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useSettings } from '@/lib/SettingsContext';
@@ -37,11 +38,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard', color: 'text-brand-blue' },
     { icon: FileText, label: 'Artículos', path: '/admin/articulos', color: 'text-brand-red' },
     { icon: FolderOpen, label: 'Categorías', path: '/admin/categorias', color: 'text-[#00AEEF]' },
+    { icon: Compass, label: 'Menú Público', path: '/admin/menu', color: 'text-sky-500' },
     { icon: Megaphone, label: 'Publicidad', path: '/admin/publicidad', color: 'text-orange-500' },
     { icon: Facebook, label: 'Importar FB', path: '/admin/importar', color: 'text-blue-600' },
     { icon: BarChart3, label: 'Reporte', path: '/admin/reporte', color: 'text-brand-yellow' },
     { icon: Users, label: 'Suscriptores', path: '/admin/suscriptores', color: 'text-purple-500' },
-    { icon: BookOpen, label: 'Revistas', path: '/admin/flipbooks', color: 'text-emerald-500' },
+    { icon: BookOpen, label: 'Periódicos', path: '/admin/flipbooks', color: 'text-emerald-500' },
     { icon: SettingsIcon, label: 'Ajustes', path: '/admin/ajustes', color: 'text-slate-500' },
   ];
 

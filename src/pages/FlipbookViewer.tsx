@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,12 @@ interface Flipbook {
 export default function FlipbookViewer() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const catalogPath = location.pathname.startsWith('/periodico')
+    ? '/periodico'
+    : location.pathname.startsWith('/revista')
+    ? '/revista'
+    : '/losanfitriones';
   const { settings } = useSettings();
   
   // Try to find the flipbook in the local dataCache first for instant zero-lag loading (matching either slug or id)
@@ -152,25 +158,25 @@ export default function FlipbookViewer() {
           }
 
         } else if (!cached) {
-          toast.error("La revista solicitada no existe.");
-          navigate('/revista');
+          toast.error("El periódico solicitado no existe.");
+          navigate(catalogPath);
         }
       } catch (err) {
         console.error("Error loading flipbook detail: ", err);
-        toast.error("Ocurrió un error al cargar la revista.");
+        toast.error("Ocurrió un error al cargar el periódico.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchDetail();
-  }, [id, navigate]);
+  }, [id, navigate, catalogPath]);
 
   // Dynamic OpenGraph and SEO tags on client side
   useEffect(() => {
     if (!flipbook) return;
     const previousTitle = document.title;
-    document.title = `${flipbook.title} | Revista Zapotlán Gráfico`;
+    document.title = `${flipbook.title} | Periódico Zapotlán Gráfico`;
 
     const setMetaProperty = (prop: string, content: string) => {
       let el = document.querySelector(`meta[property="${prop}"]`) as HTMLMetaElement;
@@ -194,7 +200,7 @@ export default function FlipbookViewer() {
 
     const cover = flipbook.coverUrl || (flipbook.pageUrls && flipbook.pageUrls[0]) || '';
     const desc = flipbook.description || 'Lee la edición digital interactiva de Zapotlán Gráfico.';
-    const shareUrl = `${window.location.origin}/revista/${flipbook.slug || flipbook.id}`;
+    const shareUrl = `${window.location.origin}${catalogPath}/${flipbook.slug || flipbook.id}`;
 
     setMetaProperty('og:title', `${flipbook.title} | Zapotlán Gráfico`);
     setMetaProperty('og:description', desc);
@@ -1027,12 +1033,12 @@ export default function FlipbookViewer() {
     };
   }, [isFullscreen]);
 
-  // Share magazine link
+  // Share newspaper link
   const handleShareUrl = async () => {
     const canonicalSlug = flipbook?.slug || flipbook?.id || id;
-    const shareUrl = `${window.location.origin}/revista/${canonicalSlug}`;
-    const shareTitle = flipbook?.title || 'Revista Digital - Zapotlán Gráfico';
-    const shareText = flipbook?.description || 'Lee la edición interactiva de nuestra revista digital en Zapotlán Gráfico.';
+    const shareUrl = `${window.location.origin}${catalogPath}/${canonicalSlug}`;
+    const shareTitle = flipbook?.title || 'Periódico Digital - Zapotlán Gráfico';
+    const shareText = flipbook?.description || 'Lee la edición interactiva de nuestro periódico digital en Zapotlán Gráfico.';
 
     // Web Share API nativa para celulares (WhatsApp, Facebook, Instagram, etc.)
     if (navigator.share) {
@@ -1050,7 +1056,7 @@ export default function FlipbookViewer() {
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
-      toast.success("¡Enlace de la revista copiado al portapapeles!");
+      toast.success("¡Enlace del periódico copiado al portapapeles!");
     } else {
       toast.error("El navegador actual no soporta el portapapeles.");
     }
@@ -1149,14 +1155,14 @@ export default function FlipbookViewer() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00AEEF]/8 rounded-full blur-[160px] pointer-events-none" />
       <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-[#FFF200]/12 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* Top Header Controls (Light Editorial Modern) - Se oculta en pantalla completa para expandir la revista a 100% */}
+      {/* Top Header Controls (Light Editorial Modern) - Se oculta en pantalla completa para expandir a 100% */}
       {!isFullscreen && (
         <header className="h-16 sm:h-20 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-3">
             <Link 
-              to="/revista"
+              to={catalogPath}
               className="flex h-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3.5 group gap-2 border border-slate-200/60"
-              title="Cerrar Revista"
+              title="Cerrar Periódico"
             >
               <X className="h-4.5 w-4.5 text-slate-600 group-hover:text-white transition-colors" />
               <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-slate-700 group-hover:text-white">

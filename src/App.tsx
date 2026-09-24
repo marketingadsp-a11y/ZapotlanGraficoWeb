@@ -28,6 +28,7 @@ import Subscribers from '@/pages/admin/Subscribers';
 import FlipbookList from '@/pages/admin/FlipbookList';
 import FlipbookMaker from '@/pages/admin/FlipbookMaker';
 import Publicidad from '@/pages/admin/Publicidad';
+import PublicMenuEditor from '@/pages/admin/PublicMenuEditor';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin } = useAuth();
@@ -48,6 +49,11 @@ export default function App() {
             <Route path="/nota/:slug" element={<ArticleDetail />} />
             <Route path="/categoria/:category" element={<CategoryPage />} />
             <Route path="/noticias" element={<Noticias />} />
+            {/* Periódico Digital / Los Anfitriones (Flipbooks) */}
+            <Route path="/losanfitriones" element={<Revista />} />
+            <Route path="/losanfitriones/:id" element={<FlipbookViewer />} />
+            <Route path="/periodico" element={<Revista />} />
+            <Route path="/periodico/:id" element={<FlipbookViewer />} />
             <Route path="/revista" element={<Revista />} />
             <Route path="/revista/:id" element={<FlipbookViewer />} />
 
@@ -61,6 +67,7 @@ export default function App() {
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="articulos" element={<ArticleList />} />
                     <Route path="categorias" element={<Categories />} />
+                    <Route path="menu" element={<PublicMenuEditor />} />
                     <Route path="articulos/nuevo" element={<ArticleEditor />} />
                     <Route path="articulos/editar/:id" element={<ArticleEditor />} />
                     <Route path="importar" element={<FBImporter />} />
@@ -75,6 +82,11 @@ export default function App() {
                 </PrivateRoute>
               } 
             />
+            {/* Direct Section / Category URLs (e.g. /losanfitriones, /cultura, etc.) */}
+            <Route path="/:category" element={<CategoryPage />} />
+
+            {/* Public Fallback */}
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           <Toaster />
           <SubscriptionModal />

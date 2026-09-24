@@ -935,8 +935,8 @@ async function startServer() {
           const coverUrl = fields.coverUrl?.stringValue || firstPageUrl || "";
 
           return {
-            title: fields.title?.stringValue || "Revista Digital",
-            description: fields.description?.stringValue || "Edición interactiva de la revista digital de Zapotlán Gráfico.",
+            title: fields.title?.stringValue || "Periódico Digital",
+            description: fields.description?.stringValue || "Edición interactiva del periódico digital de Zapotlán Gráfico.",
             coverUrl: coverUrl,
             slug: fields.slug?.stringValue || slugOrId
           };
@@ -951,16 +951,16 @@ async function startServer() {
     const injectMagazineMetaTags = (html: string, mag: any, reqUrl: string) => {
       if (!mag) return html;
 
-      const title = (mag.title || "Revista Digital").replace(/"/g, '&quot;');
-      const desc = (mag.description || "Lee la edición digital interactiva de Zapotlán Gráfico.").replace(/"/g, '&quot;');
+      const title = (mag.title || "Periódico Digital").replace(/"/g, '&quot;');
+      const desc = (mag.description || "Lee la edición digital interactiva del periódico de Zapotlán Gráfico.").replace(/"/g, '&quot;');
       const cover = mag.coverUrl || "https://zapotlangrafico.com/logo.png";
       const fullUrl = `https://zapotlangrafico.com${reqUrl}`;
 
       const tags = `
-  <title>${title} | Revista Zapotlán Gráfico</title>
+  <title>${title} | Periódico Zapotlán Gráfico</title>
   <meta name="description" content="${desc}" />
   <meta property="og:site_name" content="Zapotlán Gráfico" />
-  <meta property="og:title" content="${title} | Revista Zapotlán Gráfico" />
+  <meta property="og:title" content="${title} | Periódico Zapotlán Gráfico" />
   <meta property="og:description" content="${desc}" />
   <meta property="og:image" content="${cover}" />
   <meta property="og:image:secure_url" content="${cover}" />
@@ -968,7 +968,7 @@ async function startServer() {
   <meta property="og:url" content="${fullUrl}" />
   <meta property="og:type" content="article" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${title} | Revista Zapotlán Gráfico" />
+  <meta name="twitter:title" content="${title} | Periódico Zapotlán Gráfico" />
   <meta name="twitter:description" content="${desc}" />
   <meta name="twitter:image" content="${cover}" />
 `;
@@ -982,8 +982,8 @@ async function startServer() {
       return output;
     };
 
-    // Intercept magazine route to inject dynamic SEO/OpenGraph tags for Facebook, WhatsApp, etc.
-    app.get('/revista/:slugOrId', async (req, res) => {
+    // Intercept newspaper / magazine route to inject dynamic SEO/OpenGraph tags for Facebook, WhatsApp, etc.
+    app.get(['/revista/:slugOrId', '/periodico/:slugOrId', '/losanfitriones/:slugOrId'], async (req, res) => {
       const { slugOrId } = req.params;
       const indexHtmlPath = path.join(distPath, 'index.html');
       

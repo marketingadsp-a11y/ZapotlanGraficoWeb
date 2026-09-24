@@ -143,7 +143,7 @@ export const SELECTABLE_ICONS: SelectableIconItem[] = [
   // Noticias & Editorial
   { name: 'Newspaper', label: 'Periódico / Noticias', group: 'Noticias & Editorial', icon: Newspaper },
   { name: 'FileText', label: 'Reportaje / Nota', group: 'Noticias & Editorial', icon: FileText },
-  { name: 'BookOpen', label: 'Revista / Lectura', group: 'Noticias & Editorial', icon: BookOpen },
+  { name: 'BookOpen', label: 'Periódico Digital / Lectura', group: 'Noticias & Editorial', icon: BookOpen },
   { name: 'GraduationCap', label: 'Educación', group: 'Noticias & Editorial', icon: GraduationCap },
   { name: 'School', label: 'Escuela / Comunidad', group: 'Noticias & Editorial', icon: School },
   { name: 'MessageSquare', label: 'Opinión / Diálogo', group: 'Noticias & Editorial', icon: MessageSquare },
@@ -202,6 +202,10 @@ export const CATEGORY_ICONS: Record<string, any> = {
   'Educación': GraduationCap,
   'Opinión': MessageSquare,
   'Reportajes': FileText,
+  'Periódico': BookOpen,
+  'Periodico': BookOpen,
+  'Los Anfitriones': BookOpen,
+  'losanfitriones': BookOpen,
   'Revista': BookOpen,
   'Tecnología': Cpu,
   'Entretenimiento': Zap,
@@ -253,7 +257,8 @@ export const DEFAULT_CATEGORIES = [
   'Educación',
   'Opinión',
   'Reportajes',
-  'Revista',
+  'Periódico',
+  'Los Anfitriones',
   'Tecnología',
   'Entretenimiento',
   'Mundo',
@@ -262,3 +267,12 @@ export const DEFAULT_CATEGORIES = [
   'Gastronomía',
   'Negocios'
 ];
+
+export const DEFAULT_NAV_MENU = [
+  { id: 'inicio', label: 'Inicio', path: '/', order: 1, isActive: true, icon: 'Globe' },
+  { id: 'noticias', label: 'Noticias', path: '/noticias', order: 2, isActive: true, icon: 'Newspaper' },
+  { id: 'periodico', label: 'Los Anfitriones', path: '/losanfitriones', order: 3, isActive: true, icon: 'BookOpen' },
+  { id: 'videos', label: 'Videos', path: '/categoria/Videos', order: 4, isActive: true, icon: 'Video' },
+  { id: 'facebook', label: 'Facebook', path: '/categoria/Facebook', order: 5, isActive: true, icon: 'Facebook' },
+];
+

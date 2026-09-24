@@ -347,7 +347,7 @@ export default function FlipbookMaker() {
           };
 
           const docRef = await addDoc(collection(db, 'flipbooks'), newFlipbookDoc);
-          toast.success('¡Flipbook / Revista publicado correctamente!');
+          toast.success('¡Flipbook / Periódico publicado correctamente!');
           navigate('/admin/flipbooks');
 
         } catch (innerErr: any) {
@@ -388,7 +388,7 @@ export default function FlipbookMaker() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Publicar Nueva Revista (Flipbook)</h1>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Publicar Nuevo Periódico (Flipbook)</h1>
             <p className="text-xs text-slate-400 font-medium font-bold uppercase tracking-widest text-[#00AEEF]">Flipbook Automático por Conversión PDF</p>
           </div>
         </div>
@@ -418,12 +418,12 @@ export default function FlipbookMaker() {
           <div className="md:col-span-2 space-y-6">
             <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden p-8 space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Título de la Revista/Edición</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Título del Periódico / Edición</label>
                 <Input 
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej. Revista Zapotlán Gráfico - Edición Junio 2026"
+                  placeholder="Ej. Periódico Zapotlán Gráfico - Edición Junio 2026"
                   className="h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white text-xs font-bold font-sans transition-colors"
                   disabled={processing}
                 />
@@ -434,7 +434,7 @@ export default function FlipbookMaker() {
                 <div className="flex items-center justify-between pl-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
                     <Tag className="h-3 w-3 text-[#00AEEF]" />
-                    Categoría de la Revista (Escaparate Público)
+                    Categoría del Periódico (Escaparate Público)
                   </label>
                   <span className="text-[10px] font-bold text-slate-400">
                     Seleccionada: <strong className="text-slate-900">{category === 'Otro' ? (customCategory || 'Personalizada') : category}</strong>
@@ -522,7 +522,7 @@ export default function FlipbookMaker() {
                   />
                 </div>
                 <p className="text-[9px] text-slate-400 font-medium pl-2 leading-normal">
-                  De forma predeterminada, la primera hoja extraída del PDF se usará como portada en la sección de revistas pública.
+                  De forma predeterminada, la primera hoja extraída del PDF se usará como portada en la sección de periódicos pública.
                 </p>
               </div>
 
@@ -538,7 +538,7 @@ export default function FlipbookMaker() {
                         Paso de Páginas Automático (Modo Play)
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        ¿Iniciar la revista pasando hojas automáticamente por defecto?
+                        ¿Iniciar el periódico pasando hojas automáticamente por defecto?
                       </p>
                     </div>
                   </div>
@@ -656,7 +656,7 @@ export default function FlipbookMaker() {
                   <div className="flex items-center justify-between pt-3 border-t border-[#00AEEF]/10">
                     <div>
                       <p className="text-xs font-bold text-slate-800">
-                        ¿Reproducir audio automáticamente al abrir la revista?
+                        ¿Reproducir audio automáticamente al abrir el periódico?
                       </p>
                       <p className="text-[10px] text-slate-500">
                         Si está activo, sonará automáticamente (o al primer toque del lector).
@@ -747,7 +747,7 @@ export default function FlipbookMaker() {
                 </div>
                 <div className="space-y-1.5">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Conversor Flipbook</h3>
-                  <h2 className="text-lg font-black tracking-tight leading-snug">Publicación Digital con Experiencia de Revista Real</h2>
+                  <h2 className="text-lg font-black tracking-tight leading-snug">Publicación Digital con Experiencia de Periódico Real</h2>
                 </div>
                 <p className="text-[11px] font-medium leading-relaxed text-slate-400">
                   Subir un PDF convierte automáticamente cada página en imagen de alta resolución para que tus lectores experimenten el giro físico de hojas en el modo visor.

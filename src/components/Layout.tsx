@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe, Youtube, Video } from 'lucide-react';
+import { Menu, Search, Facebook, Twitter, Instagram, Newspaper, X, ChevronRight, Bell, Globe, Youtube, Video, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { format } from 'date-fns';
@@ -8,9 +8,11 @@ import { es } from 'date-fns/locale';
 import { useSettings } from '@/lib/SettingsContext';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
+import { DEFAULT_NAV_MENU } from '@/lib/constants';
+import { NavMenuItem } from '@/types';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  const { settings } = useSettings();
+  const { settings, categories: dbCategories } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -31,14 +33,21 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const categories = ['Local', 'General', 'Deportes', 'Cultura', 'Policiaca'];
-  const mainNav = [
-    { label: 'Inicio', path: '/' },
-    { label: 'Noticias', path: '/noticias' },
-    { label: 'Revista', path: '/revista' },
-    { label: 'Videos', path: '/categoria/Videos' },
-    { label: 'Facebook', path: '/categoria/Facebook' },
-  ];
+  const mainNav = React.useMemo<NavMenuItem[]>(() => {
+    const list = (settings.navigationMenu && Array.isArray(settings.navigationMenu) && settings.navigationMenu.length > 0)
+      ? settings.navigationMenu
+      : DEFAULT_NAV_MENU;
+    return [...list]
+      .filter(item => item.isActive !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [settings.navigationMenu]);
+
+  const displayCategories = React.useMemo(() => {
+    if (dbCategories && dbCategories.length > 0) {
+      return dbCategories.slice(0, 8).map(c => c.name);
+    }
+    return ['Local', 'General', 'Deportes', 'Cultura', 'Policiaca'];
+  }, [dbCategories]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 selection:bg-brand-blue/20 selection:text-brand-blue overflow-x-hidden w-full">
@@ -91,37 +100,80 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                         <span className="text-xl font-black tracking-tighter text-brand-blue">ZAPOTLÁN <span className="text-brand-red">GRÁFICO</span></span>
                       )}
                     </div>
-                    <nav className="flex-1 p-6 space-y-1">
-                      {mainNav.map((item) => (
-                        <Link
-                          key={item.path}
-                          to={item.path}
-                          className={cn(
-                            "flex items-center justify-between rounded-2xl p-4 text-base font-bold transition-all group",
-                            location.pathname === item.path 
-                              ? "bg-brand-blue/5 text-brand-blue" 
-                              : "text-slate-600 hover:bg-slate-50"
-                          )}
-                        >
-                          {item.label}
-                          <ChevronRight className={cn(
-                            "h-4 w-4 transition-transform group-hover:translate-x-1",
-                            location.pathname === item.path ? "opacity-100" : "opacity-20"
-                          )} />
-                        </Link>
-                      ))}
+                    <nav className="flex-1 p-6 space-y-1 overflow-y-auto">
+                      {mainNav.map((item) => {
+                        const isExternal = item.openInNewTab || item.path.startsWith('http://') || item.path.startsWith('https://');
+                        const isSelected = !isExternal && (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)));
+
+                        if (isExternal) {
+                          return (
+                            <a
+                              key={item.id || item.path}
+                              href={item.path}
+                              target={item.openInNewTab ? "_blank" : undefined}
+                              rel={item.openInNewTab ? "noopener noreferrer" : undefined}
+                              className="flex items-center justify-between rounded-2xl p-4 text-base font-bold transition-all text-slate-600 hover:bg-slate-50 group"
+                            >
+                              <span className="flex items-center gap-2">
+                                {item.label}
+                                {item.badge && (
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-brand-red text-white uppercase font-black">
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </span>
+                              <ExternalLink className="h-4 w-4 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            </a>
+                          );
+                        }
+
+                        return (
+                          <Link
+                            key={item.id || item.path}
+                            to={item.path}
+                            className={cn(
+                              "flex items-center justify-between rounded-2xl p-4 text-base font-bold transition-all group",
+                              isSelected 
+                                ? "bg-brand-blue/5 text-brand-blue" 
+                                : "text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            <span className="flex items-center gap-2">
+                              {item.label}
+                              {item.badge && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-brand-red text-white uppercase font-black">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </span>
+                            <ChevronRight className={cn(
+                              "h-4 w-4 transition-transform group-hover:translate-x-1",
+                              isSelected ? "opacity-100" : "opacity-20"
+                            )} />
+                          </Link>
+                        );
+                      })}
                       <div className="pt-8 pb-4 px-4">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Secciones</p>
                         <div className="grid grid-cols-2 gap-2">
-                          {categories.map((cat) => (
-                            <Link
-                              key={cat}
-                              to={`/categoria/${cat}`}
-                              className="px-4 py-3 rounded-xl bg-slate-50 text-xs font-bold text-slate-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
-                            >
-                              {cat}
-                            </Link>
-                          ))}
+                          {displayCategories.map((cat) => {
+                            const clean = cat.trim().toLowerCase().replace(/[\s\-_]/g, '');
+                            const catPath = (clean === 'losanfitriones' || clean === 'revista' || clean === 'periodico')
+                              ? '/losanfitriones'
+                              : clean === 'noticias'
+                              ? '/noticias'
+                              : `/categoria/${cat}`;
+
+                            return (
+                              <Link
+                                key={cat}
+                                to={catPath}
+                                className="px-4 py-3 rounded-xl bg-slate-50 text-xs font-bold text-slate-600 hover:bg-brand-blue/5 hover:text-brand-blue transition-all"
+                              >
+                                {cat}
+                              </Link>
+                            );
+                          })}
                         </div>
                       </div>
                     </nav>
@@ -203,27 +255,61 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
             {/* Desktop Nav - Modern pill style */}
             <nav className="hidden lg:flex items-center bg-slate-100/50 p-1.5 rounded-full border border-slate-200/50">
-              {mainNav.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "relative px-6 py-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-full",
-                    location.pathname === item.path 
-                      ? "text-white" 
-                      : "text-slate-500 hover:text-slate-900"
-                  )}
-                >
-                  <span className="relative z-10">{item.label}</span>
-                  {location.pathname === item.path && (
-                    <motion.div 
-                      layoutId="nav-pill" 
-                      className="absolute inset-0 bg-slate-900 rounded-full shadow-lg shadow-slate-200"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                </Link>
-              ))}
+              {mainNav.map((item) => {
+                const isExternal = item.openInNewTab || item.path.startsWith('http://') || item.path.startsWith('https://');
+                const isSelected = !isExternal && (location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)));
+
+                if (isExternal) {
+                  return (
+                    <a
+                      key={item.id || item.path}
+                      href={item.path}
+                      target={item.openInNewTab ? "_blank" : undefined}
+                      rel={item.openInNewTab ? "noopener noreferrer" : undefined}
+                      className="relative px-5 py-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-full text-slate-500 hover:text-slate-900 flex items-center gap-1.5"
+                    >
+                      <span className="relative z-10 flex items-center gap-1.5">
+                        {item.label}
+                        {item.badge && (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-brand-red text-white font-black">
+                            {item.badge}
+                          </span>
+                        )}
+                        <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                      </span>
+                    </a>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.id || item.path}
+                    to={item.path}
+                    className={cn(
+                      "relative px-6 py-2 text-[11px] font-black uppercase tracking-widest transition-all rounded-full flex items-center gap-1.5",
+                      isSelected 
+                        ? "text-white" 
+                        : "text-slate-500 hover:text-slate-900"
+                    )}
+                  >
+                    <span className="relative z-10 flex items-center gap-1.5">
+                      {item.label}
+                      {item.badge && (
+                        <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-brand-red text-white font-black">
+                          {item.badge}
+                        </span>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <motion.div 
+                        layoutId="nav-pill" 
+                        className="absolute inset-0 bg-slate-900 rounded-full shadow-lg shadow-slate-200"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      />
+                    )}
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* Actions - Minimalist */}
@@ -408,11 +494,29 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <div className="space-y-6">
               <h4 className="text-xs font-black uppercase tracking-widest text-[#FFF200]">Navegación</h4>
               <ul className="space-y-4">
-                {mainNav.map((item) => (
-                  <li key={item.path}>
-                    <Link to={item.path} className="text-slate-400 hover:text-white transition-colors font-bold">{item.label}</Link>
-                  </li>
-                ))}
+                {mainNav.map((item) => {
+                  const isExternal = item.openInNewTab || item.path.startsWith('http://') || item.path.startsWith('https://');
+                  if (isExternal) {
+                    return (
+                      <li key={item.id || item.path}>
+                        <a 
+                          href={item.path} 
+                          target={item.openInNewTab ? "_blank" : undefined}
+                          rel={item.openInNewTab ? "noopener noreferrer" : undefined}
+                          className="text-slate-400 hover:text-white transition-colors font-bold inline-flex items-center gap-1.5"
+                        >
+                          {item.label}
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </a>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={item.id || item.path}>
+                      <Link to={item.path} className="text-slate-400 hover:text-white transition-colors font-bold">{item.label}</Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

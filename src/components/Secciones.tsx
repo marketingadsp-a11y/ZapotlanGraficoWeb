@@ -9,6 +9,18 @@ interface SeccionesProps {
   currentCategory?: string;
 }
 
+export const getCategoryTargetUrl = (categoryName: string, customUrl?: string): string => {
+  if (customUrl && customUrl.trim()) return customUrl;
+  const clean = (categoryName || '').trim().toLowerCase().replace(/[\s\-_]/g, '');
+  if (clean === 'losanfitriones' || clean === 'revista' || clean === 'periodico' || clean === 'periodicos') {
+    return '/losanfitriones';
+  }
+  if (clean === 'noticias') {
+    return '/noticias';
+  }
+  return `/categoria/${categoryName}`;
+};
+
 export default function Secciones({ currentCategory }: SeccionesProps) {
   const { settings, categories } = useSettings();
   const featured = settings.featuredCategories || [];
@@ -51,7 +63,7 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
               ? 'bg-[#FF0000] border-[#FF0000] shadow-[#FF0000]/25'
               : 'bg-[#00AEEF] border-[#00AEEF] shadow-[#00AEEF]/20';
             const activeText = isFb ? 'text-[#1877F2]' : isYt ? 'text-[#FF0000]' : 'text-[#00AEEF]';
-            const targetUrl = catDoc?.customUrl || `/categoria/${currentCategory}`;
+            const targetUrl = getCategoryTargetUrl(currentCategory, catDoc?.customUrl);
 
             return (
               <motion.div
@@ -92,7 +104,7 @@ export default function Secciones({ currentCategory }: SeccionesProps) {
               ? 'group-hover:text-[#FF0000] group-hover:border-[#FF0000] group-hover:shadow-[#FF0000]/10'
               : 'group-hover:text-[#00AEEF] group-hover:border-[#00AEEF] group-hover:shadow-[#00AEEF]/10';
             const textHover = isCatFb ? 'text-[#1877F2]' : isCatYt ? 'text-[#FF0000]' : 'text-[#00AEEF]';
-            const targetUrl = catDoc?.customUrl || `/categoria/${category}`;
+            const targetUrl = getCategoryTargetUrl(category, catDoc?.customUrl);
 
             return (
               <motion.div

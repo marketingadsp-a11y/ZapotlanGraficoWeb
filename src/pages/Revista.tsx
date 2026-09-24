@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase';
 import PublicLayout from '@/components/Layout';
@@ -117,6 +117,20 @@ export const getMagazineTheme = (fb: Flipbook, index: number) => {
 };
 
 export default function Revista() {
+  const location = useLocation();
+  const isLosAnfitriones = location.pathname.startsWith('/losanfitriones');
+  const basePath = isLosAnfitriones 
+    ? '/losanfitriones' 
+    : location.pathname.startsWith('/periodico') 
+    ? '/periodico' 
+    : '/revista';
+
+  useEffect(() => {
+    document.title = isLosAnfitriones 
+      ? 'Los Anfitriones | Periódico Zapotlán Gráfico' 
+      : 'Ediciones del Periódico | Zapotlán Gráfico';
+  }, [isLosAnfitriones]);
+
   const [flipbooks, setFlipbooks] = useState<Flipbook[]>(dataCache.flipbooks as Flipbook[]);
   const [loading, setLoading] = useState(!dataCache.hasFetchedFlipbooks);
   const [activeCategory, setActiveCategory] = useState<string>('Todas');
@@ -179,9 +193,9 @@ export default function Revista() {
   const handleShare = async (fb: Flipbook, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const shareUrl = `${window.location.origin}/revista/${fb.slug || fb.id}`;
-    const shareTitle = `${fb.title} | Revista Zapotlán Gráfico`;
-    const shareText = fb.description || 'Lee la edición digital interactiva de Zapotlán Gráfico.';
+    const shareUrl = `${window.location.origin}${basePath}/${fb.slug || fb.id}`;
+    const shareTitle = `${fb.title} | Periódico Zapotlán Gráfico`;
+    const shareText = fb.description || 'Lee la edición digital interactiva del periódico de Zapotlán Gráfico.';
 
     // Intentar Web Share API en móviles/tablets para compartir directo a WhatsApp, Instagram, FB, etc.
     if (navigator.share) {
@@ -199,7 +213,7 @@ export default function Revista() {
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(shareUrl);
-      toast.success("¡Enlace de la revista copiado al portapapeles!");
+      toast.success("¡Enlace del periódico copiado al portapapeles!");
     } else {
       toast.error("Tu navegador no soporta el portapapeles.");
     }
@@ -215,9 +229,9 @@ export default function Revista() {
         localStorage.setItem('saved_magazines', JSON.stringify(updated));
       } catch {}
       if (exists) {
-        toast.info("Revista eliminada de tus guardados");
+        toast.info("Periódico eliminado de tus guardados");
       } else {
-        toast.success("¡Revista guardada en tus favoritos!");
+        toast.success("¡Periódico guardado en tus favoritos!");
       }
       return updated;
     });
@@ -243,10 +257,12 @@ export default function Revista() {
               <div className="h-8 w-1.5 bg-[#00AEEF] rounded-full" />
               <div>
                 <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white leading-tight">
-                  Ediciones Disponibles
+                  {isLosAnfitriones ? 'Los Anfitriones' : 'Ediciones del Periódico'}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">
-                  Explora nuestras revistas y catálogos interactivos organizados por temática
+                  {isLosAnfitriones 
+                    ? 'Ediciones especiales, revistas y periódicos interactivos en Los Anfitriones' 
+                    : 'Explora nuestras ediciones impresas y periódicos interactivos digitalizados'}
                 </p>
               </div>
             </div>
@@ -288,7 +304,7 @@ export default function Revista() {
             <div className="py-28 flex flex-col items-center justify-center gap-4">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent shadow-lg shadow-[#00AEEF]/20" />
               <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                Cargando revistas...
+                Cargando ediciones del periódico...
               </p>
             </div>
           ) : filteredFlipbooks.length === 0 ? (
@@ -298,7 +314,7 @@ export default function Revista() {
               </div>
               <div className="space-y-1">
                 <p className="font-black text-slate-900 text-sm">
-                  No hay revistas en esta categoría
+                  No hay ediciones del periódico en esta categoría
                 </p>
                 <p className="text-xs font-medium text-slate-400">
                   Prueba seleccionando otra categoría o vuelve pronto para nuevas ediciones.
@@ -336,9 +352,9 @@ export default function Revista() {
                       transition={{ duration: 0.25, delay: index * 0.04 }}
                       className="group bg-white dark:bg-slate-900 rounded-2xl md:rounded-[1.35rem] border border-slate-100 dark:border-slate-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_28px_-6px_rgba(0,0,0,0.12)] hover:border-slate-200 dark:hover:border-slate-700 transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:gap-5 items-stretch relative overflow-hidden"
                     >
-                      {/* COLUMNA IZQUIERDA: Portada de la Revista */}
+                      {/* COLUMNA IZQUIERDA: Portada del Periódico */}
                       <Link
-                        to={`/revista/${fb.slug || fb.id}`}
+                        to={`${basePath}/${fb.slug || fb.id}`}
                         onClick={() => handleOpenMagazine(fb)}
                         className="relative w-full sm:w-[150px] md:w-[165px] lg:w-[175px] shrink-0 aspect-[1/1.34] rounded-xl overflow-hidden shadow-md shadow-slate-950/15 group-hover:shadow-xl transition-all duration-300 bg-slate-950 block touch-manipulation active:scale-[0.98]"
                       >
@@ -383,7 +399,7 @@ export default function Revista() {
                         </div>
                       </Link>
 
-                      {/* COLUMNA DERECHA: Datos de la Revista */}
+                      {/* COLUMNA DERECHA: Datos del Periódico */}
                       <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
                         
                         {/* Cabecera de contenido */}
@@ -396,9 +412,9 @@ export default function Revista() {
                             </span>
                           </div>
 
-                          {/* Título de la Revista */}
+                          {/* Título del Periódico */}
                           <Link 
-                            to={`/revista/${fb.slug || fb.id}`}
+                            to={`${basePath}/${fb.slug || fb.id}`}
                             onClick={() => handleOpenMagazine(fb)}
                             className="touch-manipulation"
                           >
@@ -417,7 +433,7 @@ export default function Revista() {
                         <div className="flex items-center justify-between mt-4 pt-2">
                           {/* Botón Azul Leer con micro-feedback */}
                           <Link
-                            to={`/revista/${fb.slug || fb.id}`}
+                            to={`${basePath}/${fb.slug || fb.id}`}
                             onClick={() => handleOpenMagazine(fb)}
                             className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-white font-bold text-xs sm:text-sm shadow-md transition-all touch-manipulation active:scale-95 ${
                               openingId === fb.id
@@ -453,7 +469,7 @@ export default function Revista() {
                               type="button"
                               onClick={(e) => toggleBookmark(fb.id, e)}
                               className="p-2 rounded-full text-slate-400 hover:text-[#007aff] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                              title={isSaved ? "Guardado en tus favoritos" : "Guardar revista"}
+                              title={isSaved ? "Guardado en tus favoritos" : "Guardar periódico"}
                             >
                               <Bookmark 
                                 className={`h-5 w-5 transition-transform active:scale-90 ${

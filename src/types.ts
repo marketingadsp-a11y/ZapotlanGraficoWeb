@@ -40,6 +40,18 @@ export interface WeeklyStats {
   activeDays: { date: string; count: number }[];
 }
 
+export interface NavMenuItem {
+  id: string;
+  label: string;
+  path: string;
+  order: number;
+  isActive: boolean;
+  openInNewTab?: boolean;
+  icon?: string;
+  badge?: string;
+  description?: string;
+}
+
 export interface SiteSettings {
   logoUrl: string;
   siteName: string;
@@ -61,6 +73,7 @@ export interface SiteSettings {
   autoSyncFacebook?: boolean;
   facebookWebhookSecret?: string;
   facebookPageAccessToken?: string;
+  navigationMenu?: NavMenuItem[];
 }
 
 export interface Subscriber {

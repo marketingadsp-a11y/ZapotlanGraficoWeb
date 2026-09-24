@@ -103,10 +103,10 @@ export default function FlipbookList() {
   }, []);
 
   const handleDeleteFlipbook = async (id: string, title: string) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar permanentemente la revista "${title}"?`)) {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el periódico "${title}"?`)) {
       try {
         await deleteDoc(doc(db, 'flipbooks', id));
-        toast.success(`Revista "${title}" eliminada con éxito.`);
+        toast.success(`Periódico "${title}" eliminado con éxito.`);
       } catch (err) {
         console.error("Error deleting: ", err);
         toast.error("No se pudo eliminar el Flipbook.");
@@ -142,7 +142,7 @@ export default function FlipbookList() {
     }
     const freshSlug = await generateUniqueMagazineSlug(editTitle.trim(), editingFlipbook?.id);
     setEditSlug(freshSlug);
-    toast.success(`Nuevo enlace generado: /revista/${freshSlug}`);
+    toast.success(`Nuevo enlace generado: /losanfitriones/${freshSlug}`);
   };
 
   const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,11 +229,11 @@ export default function FlipbookList() {
         autoPlayAudio: editAutoPlayAudio,
       });
 
-      toast.success("¡Revista actualizada correctamente!");
+      toast.success("¡Periódico actualizado correctamente!");
       setEditingFlipbook(null);
     } catch (err: any) {
       console.error("Error updating flipbook:", err);
-      toast.error("Error al actualizar la revista: " + err.message);
+      toast.error("Error al actualizar el periódico: " + err.message);
     } finally {
       setSavingEdit(false);
     }
@@ -245,9 +245,9 @@ export default function FlipbookList() {
         {/* Header bar */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Revistas y Ediciones</h1>
+            <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900">Periódicos y Ediciones</h1>
             <p className="text-sm font-medium text-slate-500">
-              Administra tus revistas digitales: configura hojeado automático, música de fondo MP3 y edita información.
+              Administra tus periódicos y ediciones digitales: hojeado interactivo, música de fondo MP3 y datos.
             </p>
           </div>
           
@@ -256,7 +256,7 @@ export default function FlipbookList() {
             className="h-14 bg-slate-900 text-white hover:bg-[#00AEEF] rounded-2xl px-6 shadow-lg transition-all font-black text-xs uppercase tracking-widest active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            Nueva Revista (PDF)
+            Nuevo Periódico (PDF)
           </Button>
         </div>
 
@@ -272,16 +272,16 @@ export default function FlipbookList() {
               <BookOpen className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <p className="font-black text-slate-900 text-sm">No hay revistas o Flipbooks creados</p>
+              <p className="font-black text-slate-900 text-sm">No hay periódicos o Flipbooks creados</p>
               <p className="text-xs font-medium text-slate-400 max-w-sm mx-auto">
-                Carga tu primer PDF hoy para ofrecerle a los lectores del periódico una experiencia de lectura real de revista impresa.
+                Carga tu primer PDF hoy para ofrecerle a los lectores una experiencia de lectura interactiva completa.
               </p>
             </div>
             <Button
               onClick={() => navigate('/admin/flipbooks/nuevo')}
               className="h-12 bg-slate-900 text-white hover:bg-[#00AEEF] rounded-xl px-5 font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
             >
-              Hacer mi primera revista
+              Subir mi primer periódico
             </Button>
           </div>
         ) : (
@@ -336,7 +336,7 @@ export default function FlipbookList() {
                       {/* Floating Link Shortcuts */}
                       <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                         <Link 
-                          to={`/revista/${fb.slug || fb.id}`}
+                          to={`/losanfitriones/${fb.slug || fb.id}`}
                           target="_blank"
                           className="h-12 w-12 rounded-xl bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white transition-all flex items-center justify-center shadow-lg cursor-pointer"
                           title="Abrir en pestaña nueva"
@@ -345,7 +345,7 @@ export default function FlipbookList() {
                         </Link>
                         <button 
                           onClick={() => {
-                            const url = `${window.location.origin}/revista/${fb.slug || fb.id}`;
+                            const url = `${window.location.origin}/losanfitriones/${fb.slug || fb.id}`;
                             navigator.clipboard.writeText(url);
                             toast.success("¡Enlace copiado al portapapeles!");
                           }}
@@ -357,7 +357,7 @@ export default function FlipbookList() {
                         <button 
                           onClick={() => handleOpenEdit(fb)}
                           className="h-12 w-12 rounded-xl bg-white text-slate-900 hover:bg-[#FFF200] hover:text-slate-950 transition-all flex items-center justify-center shadow-lg cursor-pointer"
-                          title="Editar revista"
+                          title="Editar periódico"
                         >
                           <Pencil className="h-5 w-5" />
                         </button>
@@ -390,7 +390,7 @@ export default function FlipbookList() {
                         )}
                         <div className="pt-1 flex items-center gap-1.5 text-[11px] font-mono text-slate-400 truncate">
                           <Link2 className="h-3 w-3 text-[#00AEEF] shrink-0" />
-                          <span className="truncate">/revista/{fb.slug || fb.id}</span>
+                          <span className="truncate">/losanfitriones/{fb.slug || fb.id}</span>
                         </div>
                       </div>
 
@@ -406,7 +406,7 @@ export default function FlipbookList() {
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              const url = `${window.location.origin}/revista/${fb.slug || fb.id}`;
+                              const url = `${window.location.origin}/losanfitriones/${fb.slug || fb.id}`;
                               navigator.clipboard.writeText(url);
                               toast.success("¡Enlace copiado al portapapeles!");
                             }}
@@ -420,7 +420,7 @@ export default function FlipbookList() {
                             size="icon"
                             onClick={() => handleOpenEdit(fb)}
                             className="h-10 w-10 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                            title="Editar revista"
+                            title="Editar periódico"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -430,7 +430,7 @@ export default function FlipbookList() {
                             size="icon"
                             onClick={() => handleDeleteFlipbook(fb.id, fb.title)}
                             className="h-10 w-10 text-slate-400 hover:text-[#ED1C24] hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                            title="Eliminar revista"
+                            title="Eliminar periódico"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -462,7 +462,7 @@ export default function FlipbookList() {
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">
-                        Gestionar Revista
+                        Gestionar Periódico
                       </h2>
                       <p className="text-xs text-slate-500 font-medium">
                         Edición de datos, auto-play y audio MP3 de fondo
@@ -483,12 +483,12 @@ export default function FlipbookList() {
                   {/* Title */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-black uppercase tracking-wider text-slate-700">
-                      Título de la Revista / Edición *
+                      Título del Periódico / Edición *
                     </label>
                     <Input
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      placeholder="Ej. Revista Zapotlán Gráfico - Edición Especial 2026"
+                      placeholder="Ej. Periódico Zapotlán Gráfico - Edición Especial 2026"
                       className="h-12 rounded-xl border-slate-200"
                       required
                     />
@@ -513,7 +513,7 @@ export default function FlipbookList() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-bold text-slate-400 select-none shrink-0">
-                        /revista/
+                        /losanfitriones/
                       </span>
                       <Input
                         value={editSlug}
@@ -633,7 +633,7 @@ export default function FlipbookList() {
                             Auto-Play / Pase de Páginas Automático
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            Pasa las páginas solo automáticamente al abrir la revista.
+                            Pasa las páginas solo automáticamente al abrir el periódico.
                           </p>
                         </div>
                       </div>
@@ -752,7 +752,7 @@ export default function FlipbookList() {
                       <div className="flex items-center justify-between pt-3 border-t border-[#00AEEF]/10">
                         <div>
                           <p className="text-xs font-bold text-slate-800">
-                            ¿Reproducir audio automáticamente al abrir la revista?
+                            ¿Reproducir audio automáticamente al abrir el periódico?
                           </p>
                           <p className="text-[10px] text-slate-500">
                             Si está activo, sonará automáticamente (o al primer toque del lector).

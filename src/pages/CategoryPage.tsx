@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Article, Category } from '@/types';
@@ -22,25 +22,42 @@ export default function CategoryPage() {
   const { category: rawCategory } = useParams();
   const category = rawCategory ? decodeURIComponent(rawCategory) : '';
 
+  // Intercept special sections to guarantee seamless direct routing
+  const normalizedCategory = (category || '').trim().toLowerCase().replace(/[\s\-_]/g, '');
+  if (normalizedCategory === 'losanfitriones' || normalizedCategory === 'revista' || normalizedCategory === 'periodico' || normalizedCategory === 'periodicos') {
+    return <Navigate to="/losanfitriones" replace />;
+  }
+  if (normalizedCategory === 'noticias') {
+    return <Navigate to="/noticias" replace />;
+  }
+
   const isArticleInCategory = (art: Article, targetCat: string) => {
     if (!targetCat) return false;
     const target = targetCat.trim().toLowerCase();
+    const cleanTarget = target.replace(/[\s\-_]/g, '');
     
+    const matches = (c: any) => {
+      if (!c || typeof c !== 'string') return false;
+      const lower = c.trim().toLowerCase();
+      if (lower === target) return true;
+      if (lower.replace(/[\s\-_]/g, '') === cleanTarget) return true;
+      return false;
+    };
+
     if (Array.isArray(art.categories)) {
-      return art.categories.some(c => typeof c === 'string' && c.trim().toLowerCase() === target);
+      return art.categories.some(matches);
     }
     
     if (typeof art.categories === 'string') {
       return (art.categories as string)
         .split(',')
-        .map(c => c.trim().toLowerCase())
-        .includes(target);
+        .some(matches);
     }
     
     // Fallback to check legacy singular "category" field
     const legacyCat = (art as any).category;
     if (typeof legacyCat === 'string') {
-      return legacyCat.trim().toLowerCase() === target;
+      return matches(legacyCat);
     }
     
     return false;
@@ -99,10 +116,17 @@ export default function CategoryPage() {
     const fetchCategoryMeta = async () => {
       try {
         const snap = await getDocs(collection(db, 'categories'));
+        const cleanParam = category.trim().toLowerCase().replace(/[\s\-_]/g, '');
         let found: Category | null = null;
         snap.forEach((doc) => {
           const data = doc.data() as Category;
-          if (data.name.trim().toLowerCase() === category.trim().toLowerCase()) {
+          const cleanDoc = (data.name || '').trim().toLowerCase().replace(/[\s\-_]/g, '');
+          if (
+            cleanDoc === cleanParam ||
+            (data.name || '').trim().toLowerCase() === category.trim().toLowerCase() ||
+            doc.id.toLowerCase() === category.toLowerCase() ||
+            (data.customUrl && data.customUrl.toLowerCase() === `/${category.toLowerCase()}`)
+          ) {
             found = { id: doc.id, ...data };
           }
         });
