@@ -93,9 +93,13 @@ export default function FlipbookViewer() {
 
   // Background Audio state
   const [audioPlaying, setAudioPlaying] = useState(bgMusic.isPlaying());
+  const [isWaitingAudio, setIsWaitingAudio] = useState(bgMusic.isWaitingForGesture());
 
   useEffect(() => {
-    return bgMusic.subscribe(setAudioPlaying);
+    return bgMusic.subscribe((playing, waiting) => {
+      setAudioPlaying(playing);
+      setIsWaitingAudio(waiting);
+    });
   }, []);
 
   // References for DOM and PageFlip instance
@@ -154,6 +158,9 @@ export default function FlipbookViewer() {
           setTotalPages(foundDoc.pageUrls?.length || 0);
           if (foundDoc.autoPlayDefault) {
             setIsAutoPlayEnabled(true);
+          }
+          if (foundDoc.autoPlayAudio && foundDoc.audioUrl) {
+            bgMusic.prepareAndPlay(foundDoc.audioUrl);
           }
           
           // Increment views metric asynchronously
@@ -1073,10 +1080,38 @@ export default function FlipbookViewer() {
   const isStillLoading = loading || !bookReady;
 
   return (
-    <div className={`fixed inset-0 h-[100dvh] w-screen bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] flex flex-col text-slate-800 select-none overflow-hidden touch-none ${
+    <div 
+      onClick={() => {
+        if (bgMusic.isWaitingForGesture()) {
+          bgMusic.forceUnlock();
+        }
+      }}
+      className={`fixed inset-0 h-[100dvh] w-screen bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] flex flex-col text-slate-800 select-none overflow-hidden touch-none ${
       isFullscreen ? "z-50" : "z-30"
     }`}>
       
+      {/* Floating Audio Activation Pill (Aviso elegante si el navegador restringió el autoplay en carga directa) */}
+      <AnimatePresence>
+        {isWaitingAudio && flipbook.audioUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: -25, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -25, scale: 0.95 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              bgMusic.forceUnlock();
+            }}
+            className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-40 bg-slate-950/95 hover:bg-[#00AEEF] text-white pl-4 pr-5 py-2.5 rounded-full shadow-2xl backdrop-blur-2xl border border-white/20 flex items-center gap-3 cursor-pointer text-xs sm:text-sm font-black transition-all hover:scale-105 active:scale-95 animate-pulse"
+          >
+            <div className="h-7 w-7 rounded-full bg-[#FFF200] text-slate-950 flex items-center justify-center shrink-0 shadow-sm">
+              <Music className="h-4 w-4" />
+            </div>
+            <span>Toca en cualquier parte para activar la música de fondo</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Loading Overlay Suave: Cero Pantalla Blanca - Cubre hasta que el canvas y portada están 100% listos */}
       <AnimatePresence>
         {isStillLoading && (
@@ -1084,7 +1119,12 @@ export default function FlipbookViewer() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] text-slate-800 p-6 select-none pointer-events-none"
+            onClick={() => {
+              if (bgMusic.isWaitingForGesture()) {
+                bgMusic.forceUnlock();
+              }
+            }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0] text-slate-800 p-6 select-none cursor-pointer"
           >
             {/* Soft background aura */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#00AEEF]/15 rounded-full blur-[90px] pointer-events-none" />
