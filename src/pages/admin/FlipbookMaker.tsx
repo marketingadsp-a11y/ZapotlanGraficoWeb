@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '@/firebase';
 import { collection, addDoc, Timestamp, onSnapshot, query, getDocs, limit } from 'firebase/firestore';
 import { useSettings } from '@/lib/SettingsContext';
@@ -33,12 +33,15 @@ import {
   Newspaper,
   Compass,
   Folder,
-  Layers
+  Layers,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 import { generateUniqueMagazineSlug } from '@/lib/slugHelper';
+import { extractIframeSrc, isValidIframeOrUrl } from '@/lib/iframeHelper';
 
 export const MAGAZINE_CATEGORIES = [
   { name: 'Cultura', icon: Leaf, color: 'text-emerald-600', activeBg: 'bg-emerald-500 text-white shadow-emerald-500/25', border: 'border-emerald-200' },
@@ -58,6 +61,9 @@ declare global {
 
 export default function FlipbookMaker() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'iframe' ? 'iframe' : 'pdf';
+  const [mode, setMode] = useState<'pdf' | 'iframe'>(initialMode);
   const { settings } = useSettings();
   
   // ImgBB Key logic
@@ -74,11 +80,15 @@ export default function FlipbookMaker() {
   const [file, setFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [coverUrl, setCoverUrl] = useState('');
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [iframeInput, setIframeInput] = useState('');
   const [autoPlayDefault, setAutoPlayDefault] = useState(false);
   const [autoPlayInterval, setAutoPlayInterval] = useState(5);
   const [audioUrl, setAudioUrl] = useState('');
   const [autoPlayAudio, setAutoPlayAudio] = useState(false);
   const [uploadingAudio, setUploadingAudio] = useState(false);
+
+  const extractedIframeUrl = useMemo(() => extractIframeSrc(iframeInput), [iframeInput]);
   
   // PDF JS & Processing states
   const [pdfJsLoaded, setPdfJsLoaded] = useState(false);
@@ -441,46 +451,172 @@ export default function FlipbookMaker() {
         }
       };
 
+  const handleSaveIframePublication = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!title.trim()) {
+      toast.error('Por favor escribe un título para la publicación.');
+      return;
+    }
+
+    if (!iframeInput.trim()) {
+      toast.error('Por favor ingresa el código iframe o el enlace web.');
+      return;
+    }
+
+    const cleanUrl = extractIframeSrc(iframeInput);
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      toast.error('El código o enlace no contiene una dirección web válida (debe empezar con http:// o https://).');
+      return;
+    }
+
+    setProcessing(true);
+    setCurrentStep('Guardando publicación con iframe...');
+
+    try {
+      let finalCoverUrl = coverUrl.trim();
+
+      // Si seleccionó un archivo de imagen de portada y tenemos API key de ImgBB, lo subimos
+      if (coverImageFile && !finalCoverUrl && activeImgbbKey) {
+        setCurrentStep('Subiendo imagen de portada a ImgBB...');
+        finalCoverUrl = await uploadPageToImgBB(coverImageFile, 1);
+      }
+
+      const publicationSlug = await generateUniqueMagazineSlug(title.trim());
+      const finalCategory = (category === 'Otro' ? customCategory : category).trim() || 'Cultura';
+      const finalFolder = (folder === '__NEW__' ? customFolder : folder).trim();
+
+      const newFlipbookDoc = {
+        title: title.trim(),
+        description: description.trim(),
+        category: finalCategory,
+        folder: finalFolder,
+        coverUrl: finalCoverUrl,
+        pageUrls: finalCoverUrl ? [finalCoverUrl] : [],
+        slug: publicationSlug,
+        type: 'iframe' as const,
+        iframeCode: iframeInput.trim(),
+        embedUrl: cleanUrl,
+        createdAt: Timestamp.now(),
+        views: 0,
+        autoPlayDefault: false,
+        autoPlayInterval: 5,
+        audioUrl: audioUrl.trim(),
+        autoPlayAudio
+      };
+
+      await addDoc(collection(db, 'flipbooks'), newFlipbookDoc);
+
+      if (finalFolder && !availableFolders.some(f => f.toLowerCase() === finalFolder.toLowerCase())) {
+        try {
+          await addDoc(collection(db, 'flipbook_folders'), {
+            name: finalFolder,
+            description: '',
+            createdAt: Timestamp.now()
+          });
+        } catch {}
+      }
+
+      toast.success('¡Periódico con Iframe publicado correctamente!');
+      navigate('/admin/flipbooks');
+    } catch (err: any) {
+      console.error("Error al guardar periódico iframe:", err);
+      toast.error('Error al guardar la publicación: ' + (err.message || String(err)));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-8 max-w-4xl mx-auto">
         {/* Header link */}
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/admin/flipbooks')}
-            className="h-10 w-10 rounded-xl hover:bg-slate-100 transition-all text-slate-400"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Publicar Nuevo Periódico (Flipbook)</h1>
-            <p className="text-xs text-slate-400 font-medium font-bold uppercase tracking-widest text-[#00AEEF]">Flipbook Automático por Conversión PDF</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate('/admin/flipbooks')}
+              className="h-10 w-10 rounded-xl hover:bg-slate-100 transition-all text-slate-400 cursor-pointer"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Publicar Nuevo Periódico</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#00AEEF]">
+                {mode === 'iframe' ? 'Integración de Iframe (Heyzine / Calaméo / Issuu)' : 'Conversión Ultra-HD (PDF o Imágenes)'}
+              </p>
+            </div>
+          </div>
+
+          {/* Selector de Modo: Pestañas interactivas */}
+          <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1.5 self-start sm:self-auto border border-slate-200/60 shadow-inner">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('pdf');
+                setSearchParams({ mode: 'pdf' });
+              }}
+              className={`py-2 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                mode === 'pdf'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <Upload className="h-3.5 w-3.5 text-amber-500" />
+              <span>PDF / Imágenes</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('iframe');
+                setSearchParams({ mode: 'iframe' });
+              }}
+              className={`py-2 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${
+                mode === 'iframe'
+                  ? 'bg-white text-purple-700 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <FileCode className="h-3.5 w-3.5 text-purple-600" />
+              <span>Insertar Iframe</span>
+            </button>
           </div>
         </div>
 
-        {!activeImgbbKey && (
+        {mode === 'pdf' && !activeImgbbKey && (
           <div className="p-6 bg-red-50 border border-red-100 rounded-[2rem] flex flex-col md:flex-row items-start gap-4">
             <div className="h-12 w-12 rounded-2xl bg-red-100 text-brand-red flex items-center justify-center shrink-0">
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-black text-slate-900 uppercase tracking-wide leading-normal">Se requiere API Key de ImgBB</p>
+              <p className="text-xs font-black text-slate-900 uppercase tracking-wide leading-normal">Se requiere API Key de ImgBB para procesar PDFs</p>
               <p className="text-xs text-slate-500 font-semibold mt-1 leading-relaxed">
-                Este conversor genera imágenes individuales por página y necesita subirlas a la web. Configura tu API Key global de ImgBB en los <strong>Ajustes del Sitio</strong> para habilitar esta funcionalidad de forma nativa.
+                El conversor procesa cada página y la aloja en la nube. Configura tu API Key global de ImgBB en Ajustes, o bien cambia al modo <strong>Insertar Iframe</strong> para usar Heyzine directamente.
               </p>
-              <Button 
-                onClick={() => navigate('/admin/ajustes')}
-                className="mt-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 hover:bg-slate-800"
-              >
-                Configurar Clave Ahora
-              </Button>
+              <div className="flex gap-3 mt-3">
+                <Button 
+                  onClick={() => navigate('/admin/ajustes')}
+                  className="bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 hover:bg-slate-800"
+                >
+                  Configurar Clave
+                </Button>
+                <Button
+                  onClick={() => {
+                    setMode('iframe');
+                    setSearchParams({ mode: 'iframe' });
+                  }}
+                  variant="outline"
+                  className="bg-white border-purple-200 text-purple-700 rounded-xl text-[10px] font-black uppercase tracking-widest px-4 py-2 hover:bg-purple-50"
+                >
+                  Usar Iframe (Heyzine)
+                </Button>
+              </div>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleProcessAndCreate} className="grid md:grid-cols-3 gap-8">
+        <form onSubmit={mode === 'iframe' ? handleSaveIframePublication : handleProcessAndCreate} className="grid md:grid-cols-3 gap-8">
           {/* Main Info Fields */}
           <div className="md:col-span-2 space-y-6">
             <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden p-8 space-y-6">
@@ -796,114 +932,233 @@ export default function FlipbookMaker() {
               </div>
             </Card>
 
-            {/* Drop PDF or Images Container */}
-            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
-              <CardContent className="p-8">
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">
-                    Carga de Periódico (PDF o Imágenes)
-                  </span>
-                  
-                  <div
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    className={cn(
-                      "border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center transition-all cursor-pointer relative",
-                      dragActive ? "border-[#00AEEF] bg-[#00AEEF]/5 scale-98" : "border-slate-200 hover:border-slate-300",
-                      file || imageFiles.length > 0 ? "bg-emerald-50/10 border-emerald-200" : ""
-                    )}
-                  >
-                    <input 
-                      type="file"
-                      accept=".pdf,image/jpeg,image/png,image/webp"
-                      multiple
-                      onChange={handleChangeFile}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            {/* Container Dinámico: Modo Iframe vs Modo Carga PDF/Imágenes */}
+            {mode === 'iframe' ? (
+              <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden p-8 space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                      <FileCode className="h-4 w-4 text-purple-600" />
+                      Código Iframe o Enlace del Visor Externo *
+                    </label>
+                    <span className="text-[10px] font-bold text-purple-600 uppercase">
+                      Heyzine, Calaméo, Issuu, etc.
+                    </span>
+                  </div>
+
+                  <Textarea
+                    required
+                    value={iframeInput}
+                    onChange={(e) => setIframeInput(e.target.value)}
+                    placeholder='<iframe allowfullscreen allow="autoplay; fullscreen; clipboard-write" scrolling="no" style="width: 100%; height: 400px; border: 1px solid lightgray;" src="https://heyzine.com/flip-book/b301b4a868.html"></iframe>'
+                    className="font-mono text-xs rounded-2xl border-purple-200 bg-purple-50/20 focus:bg-white min-h-[110px] text-slate-800 transition-colors"
+                    disabled={processing}
+                  />
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-[11px] text-slate-600 space-y-1">
+                    <p className="font-bold text-slate-700">Puedes ingresar:</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-slate-500 font-mono text-[10px]">
+                      <li>El código iframe completo: <code>&lt;iframe src=&quot;https://heyzine.com/...&quot; ...&gt;&lt;/iframe&gt;</code></li>
+                      <li>O la URL web directa: <code>https://heyzine.com/flip-book/b301b4a868.html</code></li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Vista Previa Interactiva en Vivo del Iframe */}
+                {extractedIframeUrl && isValidIframeOrUrl(iframeInput) && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Vista Previa Interactiva en Vivo
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400 truncate max-w-xs">
+                        {extractedIframeUrl}
+                      </span>
+                    </div>
+
+                    <div className="w-full h-80 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-slate-900 relative">
+                      <iframe
+                        src={extractedIframeUrl}
+                        className="w-full h-full border-0"
+                        allow="autoplay; fullscreen; clipboard-write; web-share"
+                        allowFullScreen
+                        scrolling="no"
+                        title="Vista previa del periódico"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Imagen de Portada para la cartelera y redes */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5 text-amber-500" />
+                      Imagen de Portada (Para el catálogo y redes sociales)
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400">Opcional</span>
+                  </div>
+
+                  <div className="flex gap-3 items-center">
+                    <Input
+                      value={coverUrl}
+                      onChange={(e) => setCoverUrl(e.target.value)}
+                      placeholder="https://... o selecciona un archivo de imagen abajo"
+                      className="h-11 rounded-xl border-slate-200 text-xs font-mono"
                       disabled={processing}
                     />
-
-                    {file ? (
-                      <div className="text-center space-y-4">
-                        <div className="mx-auto h-16 w-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                          <FileText className="h-8 w-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-black text-slate-900 max-w-sm truncate">{file.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB • PDF Listo para Ultra-HD (300 DPI)
-                          </p>
-                        </div>
-                        <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-600">
-                          Hacer clic o arrastrar para cambiar
-                        </span>
-                      </div>
-                    ) : imageFiles.length > 0 ? (
-                      <div className="text-center space-y-4">
-                        <div className="mx-auto h-16 w-16 bg-[#00AEEF]/10 text-[#00AEEF] rounded-2xl flex items-center justify-center shadow-lg">
-                          <Layers className="h-8 w-8" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-black text-slate-900">
-                            {imageFiles.length} páginas seleccionadas
-                          </p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                            {(imageFiles.reduce((acc, curr) => acc + curr.size, 0) / (1024 * 1024)).toFixed(2)} MB • Resolución 100% original
-                          </p>
-                        </div>
-                        <span className="inline-flex rounded-full bg-[#00AEEF]/10 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-[#00AEEF]">
-                          Hacer clic o arrastrar para cambiar
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="text-center space-y-4">
-                        <div className="mx-auto h-16 w-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center group-hover:scale-105 transition-all">
-                          <Upload className="h-8 w-8 text-slate-400" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-black text-slate-900 leading-snug">Arrastra tu PDF o páginas JPG/PNG aquí</p>
-                          <p className="text-xs text-slate-500 font-medium">Soporta documento PDF o selección múltiple de páginas en resolución completa</p>
-                        </div>
+                    {coverUrl && (
+                      <div className="h-11 w-10 shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        <img src={coverUrl} alt="Portada" className="h-full w-full object-cover" />
                       </div>
                     )}
                   </div>
+
+                  {activeImgbbKey && (
+                    <div className="pt-1">
+                      <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition-colors">
+                        <Upload className="h-3.5 w-3.5 text-slate-500" />
+                        <span>{coverImageFile ? coverImageFile.name : 'Subir archivo de portada'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) setCoverImageFile(f);
+                          }}
+                          className="hidden"
+                          disabled={processing}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </Card>
+            ) : (
+              <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
+                <CardContent className="p-8">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">
+                      Carga de Periódico (PDF o Imágenes)
+                    </span>
+                    
+                    <div
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={handleDrop}
+                      className={cn(
+                        "border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center transition-all cursor-pointer relative",
+                        dragActive ? "border-[#00AEEF] bg-[#00AEEF]/5 scale-98" : "border-slate-200 hover:border-slate-300",
+                        file || imageFiles.length > 0 ? "bg-emerald-50/10 border-emerald-200" : ""
+                      )}
+                    >
+                      <input 
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={handleChangeFile}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        disabled={processing}
+                      />
+
+                      {file ? (
+                        <div className="text-center space-y-4">
+                          <div className="mx-auto h-16 w-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <FileText className="h-8 w-8" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-black text-slate-900 max-w-sm truncate">{file.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB • PDF Listo para Ultra-HD (300 DPI)
+                            </p>
+                          </div>
+                          <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                            Hacer clic o arrastrar para cambiar
+                          </span>
+                        </div>
+                      ) : imageFiles.length > 0 ? (
+                        <div className="text-center space-y-4">
+                          <div className="mx-auto h-16 w-16 bg-[#00AEEF]/10 text-[#00AEEF] rounded-2xl flex items-center justify-center shadow-lg">
+                            <Layers className="h-8 w-8" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-black text-slate-900">
+                              {imageFiles.length} páginas seleccionadas
+                            </p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                              {(imageFiles.reduce((acc, curr) => acc + curr.size, 0) / (1024 * 1024)).toFixed(2)} MB • Resolución 100% original
+                            </p>
+                          </div>
+                          <span className="inline-flex rounded-full bg-[#00AEEF]/10 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-[#00AEEF]">
+                            Hacer clic o arrastrar para cambiar
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-4">
+                          <div className="mx-auto h-16 w-16 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center group-hover:scale-105 transition-all">
+                            <Upload className="h-8 w-8 text-slate-400" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-black text-slate-900 leading-snug">Arrastra tu PDF o páginas JPG/PNG aquí</p>
+                            <p className="text-xs text-slate-500 font-medium">Soporta documento PDF o selección múltiple de páginas en resolución completa</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Action and Conversion Status View */}
           <div className="space-y-6">
             <Card className="border-none shadow-sm bg-slate-900 text-white rounded-[2.5rem] overflow-hidden p-8 flex flex-col justify-between min-h-[300px]">
               <div className="space-y-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-[#FFF200] shadow-md shadow-[#FFF200]/10">
-                  <Sparkles className="h-6 w-6" />
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${mode === 'iframe' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/10 text-[#FFF200]'} shadow-md`}>
+                  {mode === 'iframe' ? <FileCode className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
                 </div>
                 <div className="space-y-1.5">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Conversor Flipbook</h3>
-                  <h2 className="text-lg font-black tracking-tight leading-snug">Publicación Digital con Experiencia de Periódico Real</h2>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    {mode === 'iframe' ? 'Visor Externo Embebido' : 'Conversor Flipbook'}
+                  </h3>
+                  <h2 className="text-lg font-black tracking-tight leading-snug">
+                    {mode === 'iframe' ? 'Integración Instantánea de Heyzine' : 'Publicación Digital con Experiencia de Periódico Real'}
+                  </h2>
                 </div>
                 <p className="text-[11px] font-medium leading-relaxed text-slate-400">
-                  Subir un PDF convierte automáticamente cada página en imagen de alta resolución para que tus lectores experimenten el giro físico de hojas en el modo visor.
+                  {mode === 'iframe' 
+                    ? 'Inserta publicaciones de visores externos como Heyzine, Calaméo o Issuu. Los lectores hojearán el periódico directamente sin salir de tu web.'
+                    : 'Subir un PDF convierte automáticamente cada página en imagen de alta resolución para que tus lectores experimenten el giro físico de hojas en el modo visor.'}
                 </p>
               </div>
 
               <div className="pt-8">
                 <Button
                   type="submit"
-                  disabled={processing || (!file && imageFiles.length === 0) || !activeImgbbKey}
-                  className="w-full h-14 rounded-2xl bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                  disabled={processing || (mode === 'pdf' ? ((!file && imageFiles.length === 0) || !activeImgbbKey) : !iframeInput.trim())}
+                  className={`w-full h-14 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                    mode === 'iframe'
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white'
+                  }`}
                 >
                   {processing ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin text-slate-900" />
-                      Procesando...
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{mode === 'iframe' ? 'Publicando...' : 'Procesando...'}</span>
+                    </>
+                  ) : mode === 'iframe' ? (
+                    <>
+                      <FileCode className="h-4 w-4" />
+                      <span>Publicar Periódico Iframe</span>
                     </>
                   ) : (
                     <>
                       <BookOpen className="h-4 w-4" />
-                      Convertir y Publicar
+                      <span>Convertir y Publicar</span>
                     </>
                   )}
                 </Button>

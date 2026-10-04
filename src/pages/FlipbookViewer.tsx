@@ -35,6 +35,7 @@ import { dataCache } from '@/lib/dataCache';
 import { pageSound } from '@/lib/pageSound';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 import { bgMusic } from '@/lib/bgMusic';
+import { extractIframeSrc } from '@/lib/iframeHelper';
 // Import PageFlip from page-flip library
 import { PageFlip } from 'page-flip';
 
@@ -52,6 +53,9 @@ interface Flipbook {
   audioUrl?: string;
   autoPlayAudio?: boolean;
   folder?: string;
+  type?: 'pdf' | 'iframe';
+  iframeCode?: string;
+  embedUrl?: string;
 }
 
 export default function FlipbookViewer() {
@@ -92,6 +96,8 @@ export default function FlipbookViewer() {
   const zoomWrapperRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const isDraggingMouseRef = useRef(false);
+
+  const isIframeBook = flipbook?.type === 'iframe' || Boolean(flipbook?.embedUrl);
 
   // Background Audio state
   const [audioPlaying, setAudioPlaying] = useState(bgMusic.isPlaying());
@@ -234,7 +240,11 @@ export default function FlipbookViewer() {
         const cached = dataCache.flipbooks.find(f => f.slug === id || f.id === id);
         if (cached) {
           setFlipbook(cached);
-          setTotalPages(cached.pageUrls.length);
+          const isIframe = cached.type === 'iframe' || Boolean(cached.embedUrl);
+          setTotalPages(cached.pageUrls?.length || (isIframe ? 1 : 0));
+          if (isIframe) {
+            setBookReady(true);
+          }
           if (cached.autoPlayDefault) {
             setIsAutoPlayEnabled(true);
           }
@@ -273,7 +283,11 @@ export default function FlipbookViewer() {
 
         if (foundDoc) {
           setFlipbook(foundDoc);
-          setTotalPages(foundDoc.pageUrls?.length || 0);
+          const isIframe = foundDoc.type === 'iframe' || Boolean(foundDoc.embedUrl);
+          setTotalPages(foundDoc.pageUrls?.length || (isIframe ? 1 : 0));
+          if (isIframe) {
+            setBookReady(true);
+          }
           if (foundDoc.autoPlayDefault) {
             setIsAutoPlayEnabled(true);
           }
@@ -742,7 +756,7 @@ export default function FlipbookViewer() {
 
   // Initialize PageFlip instance with strict mathematical containment
   useEffect(() => {
-    if (!flipbook || !flipbook.pageUrls || flipbook.pageUrls.length === 0 || !bookHostRef.current) {
+    if (isIframeBook || !flipbook || !flipbook.pageUrls || flipbook.pageUrls.length === 0 || !bookHostRef.current) {
       return;
     }
 
@@ -1129,7 +1143,7 @@ export default function FlipbookViewer() {
     );
   }
 
-  const isStillLoading = loading || !bookReady;
+  const isStillLoading = loading || (!bookReady && !isIframeBook);
 
   return (
     <div 
@@ -1283,18 +1297,34 @@ export default function FlipbookViewer() {
 
           {/* Top Right Quick Actions */}
           <div className="flex items-center gap-1.5">
-            {/* Ultra-HD Reader Button */}
-            <Button
-              variant="ghost"
-              onClick={() => handleOpenHdModal()}
-              className="h-9 px-2.5 gap-1.5 rounded-xl bg-[#00AEEF]/10 text-[#00AEEF] hover:bg-[#00AEEF] hover:text-white border border-[#00AEEF]/30 transition-all shadow-xs cursor-pointer"
-              title="Abrir página actual en modo Ultra-HD para lectura de textos pequeños"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
-                Lectura HD
-              </span>
-            </Button>
+            {/* Ultra-HD Reader Button (Solo en libros con imágenes nativas) */}
+            {!isIframeBook && (
+              <Button
+                variant="ghost"
+                onClick={() => handleOpenHdModal()}
+                className="h-9 px-2.5 gap-1.5 rounded-xl bg-[#00AEEF]/10 text-[#00AEEF] hover:bg-[#00AEEF] hover:text-white border border-[#00AEEF]/30 transition-all shadow-xs cursor-pointer"
+                title="Abrir página actual en modo Ultra-HD para lectura de textos pequeños"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
+                  Lectura HD
+                </span>
+              </Button>
+            )}
+
+            {/* Enlace externo para Iframe si existe */}
+            {isIframeBook && (flipbook.embedUrl || extractIframeSrc(flipbook.iframeCode || '')) && (
+              <a
+                href={flipbook.embedUrl || extractIframeSrc(flipbook.iframeCode || '')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-9 px-2.5 gap-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-900 border border-purple-200/80 transition-all shadow-xs flex items-center text-[9px] font-black uppercase tracking-wider"
+                title="Abrir enlace original en pestaña nueva"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Visor Original</span>
+              </a>
+            )}
 
             {/* Background Music Button (if audio configured) */}
             {flipbook.audioUrl && (
@@ -1315,17 +1345,19 @@ export default function FlipbookViewer() {
               </Button>
             )}
 
-            {/* Sound Toggle (Flip effect) */}
-            <Button
-              variant="ghost"
-              onClick={handleToggleSound}
-              className={`h-9 w-9 p-0 rounded-xl transition-colors border ${
-                !isMuted ? "bg-[#00AEEF]/10 text-[#00AEEF] border-[#00AEEF]/30" : "bg-slate-100/80 text-slate-600 hover:text-slate-900 border-slate-200/70"
-              }`}
-              title={isMuted ? "Activar sonido de hojeado" : "Silenciar sonido de hojeado"}
-            >
-              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </Button>
+            {/* Sound Toggle (Flip effect - solo en libro 3D) */}
+            {!isIframeBook && (
+              <Button
+                variant="ghost"
+                onClick={handleToggleSound}
+                className={`h-9 w-9 p-0 rounded-xl transition-colors border ${
+                  !isMuted ? "bg-[#00AEEF]/10 text-[#00AEEF] border-[#00AEEF]/30" : "bg-slate-100/80 text-slate-600 hover:text-slate-900 border-slate-200/70"
+                }`}
+                title={isMuted ? "Activar sonido de hojeado" : "Silenciar sonido de hojeado"}
+              >
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </Button>
+            )}
 
             {/* Share Button */}
             <Button
@@ -1362,128 +1394,145 @@ export default function FlipbookViewer() {
         </button>
       )}
 
-      {/* Main Interactive Stage with 3D Flipbook Canvas */}
+      {/* Main Interactive Stage with 3D Flipbook Canvas or Embedded Iframe */}
       <div 
         ref={stageContainerRef}
         className="flex-1 min-h-0 relative flex items-center justify-center p-2 sm:p-4 overflow-hidden touch-none select-none"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerDown={isIframeBook ? undefined : handlePointerDown}
+        onPointerMove={isIframeBook ? undefined : handlePointerMove}
+        onPointerUp={isIframeBook ? undefined : handlePointerUp}
+        onPointerCancel={isIframeBook ? undefined : handlePointerUp}
         style={{
-          cursor: displayZoom > 1.05 ? (isDraggingMouseRef.current ? 'grabbing' : 'grab') : 'default'
+          cursor: isIframeBook ? 'default' : (displayZoom > 1.05 ? (isDraggingMouseRef.current ? 'grabbing' : 'grab') : 'default')
         }}
       >
-        {/* Floating Zoom Indicator & Quick Reset on Mobile / Zoomed state */}
-        {displayZoom > 1.05 && (
-          <div className="absolute top-3 sm:top-4 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-xl border border-slate-200 px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-300/40">
-            <span className="text-[11px] font-mono font-bold text-[#00AEEF]">
-              🔍 {Math.round(displayZoom * 100)}%
-            </span>
-            <span className="text-slate-300 text-[10px]">•</span>
-            <button
-              onClick={handleResetZoom}
-              className="text-[10px] font-black uppercase tracking-wider text-slate-700 hover:text-[#00AEEF] transition-colors cursor-pointer flex items-center gap-1 border-none bg-transparent"
-              title="Restablecer tamaño normal"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Restablecer
-            </button>
-          </div>
-        )}
-
-        {/* Navigation overlay buttons (Con efecto luminoso continuo, siempre visibles en cualquier momento) */}
-        {currentPage > 0 && (
-          <button 
-            onClick={handlePrev}
-            className="absolute left-2 sm:left-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-white/95 text-slate-700 hover:text-[#00AEEF] hover:bg-white active:scale-95 transition-all backdrop-blur-xl border border-slate-200 flex shadow-xl shadow-slate-400/20 group cursor-pointer animate-nav-light-prev"
-            title="Página Anterior"
-          >
-            <span className="absolute inset-0 rounded-full bg-slate-300/30 animate-ping opacity-30 pointer-events-none" />
-            <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-left text-slate-700 group-hover:text-[#00AEEF] drop-shadow-xs" />
-          </button>
-        )}
-
-        {currentPage < totalPages - 1 && (
-          <button 
-            onClick={handleNext}
-            className="absolute right-2 sm:right-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] text-white active:scale-95 transition-all backdrop-blur-xl border border-white/60 flex shadow-xl shadow-[#00AEEF]/30 group cursor-pointer animate-nav-light-cyan"
-            title="Página Siguiente"
-          >
-            <span className="absolute inset-0 rounded-full bg-[#00AEEF]/50 animate-ping opacity-40 pointer-events-none" />
-            <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-right text-white drop-shadow-xs" />
-          </button>
-        )}
-
-        {/* Zoom & Pan Wrapper (Direct GPU Transform, zero React re-render freeze) */}
-        <div 
-          ref={zoomWrapperRef}
-          style={{
-            willChange: 'transform',
-            transformOrigin: 'center center',
-          }}
-          className="relative w-full h-full flex items-center justify-center magazine-stage-glow-light select-none touch-none"
-        >
-          {/* Host element where PageFlip creates and manages 3D book pages (active at 1.0x normal viewing with both sides visible) */}
-          <div 
-            ref={bookHostRef} 
-            className="w-full h-full flex items-center justify-center select-none touch-none"
-            style={{
-              display: displayZoom > 1.05 ? 'none' : 'flex',
-              pointerEvents: displayZoom > 1.05 ? 'none' : 'auto'
-            }}
-          />
-
-          {/* Ultra-HD Native Full-Resolution Layer (Active when zoomed in > 1.05 to read text in 100% native resolution) */}
-          {displayZoom > 1.05 && currentSpread && (
-            <div 
-              className="w-full h-full flex items-center justify-center select-none touch-none pointer-events-none"
-            >
-              <div 
-                className="flex items-center justify-center shadow-2xl bg-white"
-                style={{
-                  width: `${currentSpread.totalWidth}px`,
-                  height: `${currentSpread.height}px`,
-                }}
-              >
-                {currentSpread.isCover && orientation === 'landscape' && (
-                  <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
-                )}
-
-                {currentSpread.leftUrl && (
-                  <img
-                    src={currentSpread.leftUrl}
-                    alt="Página Izquierda HD"
-                    className="h-full object-contain bg-white select-none"
-                    style={{
-                      width: `${currentSpread.pageWidth}px`,
-                    }}
-                    draggable={false}
-                  />
-                )}
-                {currentSpread.rightUrl && (
-                  <img
-                    src={currentSpread.rightUrl}
-                    alt="Página Derecha HD"
-                    className="h-full object-contain bg-white select-none"
-                    style={{
-                      width: `${currentSpread.pageWidth}px`,
-                    }}
-                    draggable={false}
-                  />
-                )}
-
-                {currentSpread.isBackCover && orientation === 'landscape' && (
-                  <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
-                )}
-              </div>
+        {isIframeBook ? (
+          <div className="relative w-full h-full flex flex-col items-center justify-center">
+            <div className="w-full h-full max-w-7xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white border border-slate-200/80 relative flex flex-col">
+              <iframe
+                src={flipbook.embedUrl || extractIframeSrc(flipbook.iframeCode || '')}
+                className="w-full h-full border-0 flex-1"
+                allow="autoplay; fullscreen; clipboard-write; web-share"
+                allowFullScreen
+                scrolling="no"
+                title={flipbook.title}
+              />
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            {/* Floating Zoom Indicator & Quick Reset on Mobile / Zoomed state */}
+            {displayZoom > 1.05 && (
+              <div className="absolute top-3 sm:top-4 z-30 flex items-center gap-2 bg-white/95 backdrop-blur-xl border border-slate-200 px-3.5 py-1.5 rounded-full shadow-lg shadow-slate-300/40">
+                <span className="text-[11px] font-mono font-bold text-[#00AEEF]">
+                  🔍 {Math.round(displayZoom * 100)}%
+                </span>
+                <span className="text-slate-300 text-[10px]">•</span>
+                <button
+                  onClick={handleResetZoom}
+                  className="text-[10px] font-black uppercase tracking-wider text-slate-700 hover:text-[#00AEEF] transition-colors cursor-pointer flex items-center gap-1 border-none bg-transparent"
+                  title="Restablecer tamaño normal"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Restablecer
+                </button>
+              </div>
+            )}
+
+            {/* Navigation overlay buttons (Con efecto luminoso continuo, siempre visibles en cualquier momento) */}
+            {currentPage > 0 && (
+              <button 
+                onClick={handlePrev}
+                className="absolute left-2 sm:left-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-white/95 text-slate-700 hover:text-[#00AEEF] hover:bg-white active:scale-95 transition-all backdrop-blur-xl border border-slate-200 flex shadow-xl shadow-slate-400/20 group cursor-pointer animate-nav-light-prev"
+                title="Página Anterior"
+              >
+                <span className="absolute inset-0 rounded-full bg-slate-300/30 animate-ping opacity-30 pointer-events-none" />
+                <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-left text-slate-700 group-hover:text-[#00AEEF] drop-shadow-xs" />
+              </button>
+            )}
+
+            {currentPage < totalPages - 1 && (
+              <button 
+                onClick={handleNext}
+                className="absolute right-2 sm:right-4 top-1/2 z-20 h-11 w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full bg-gradient-to-tr from-[#0092c7] to-[#00bfff] text-white active:scale-95 transition-all backdrop-blur-xl border border-white/60 flex shadow-xl shadow-[#00AEEF]/30 group cursor-pointer animate-nav-light-cyan"
+                title="Página Siguiente"
+              >
+                <span className="absolute inset-0 rounded-full bg-[#00AEEF]/50 animate-ping opacity-40 pointer-events-none" />
+                <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 animate-nudge-right text-white drop-shadow-xs" />
+              </button>
+            )}
+
+            {/* Zoom & Pan Wrapper (Direct GPU Transform, zero React re-render freeze) */}
+            <div 
+              ref={zoomWrapperRef}
+              style={{
+                willChange: 'transform',
+                transformOrigin: 'center center',
+              }}
+              className="relative w-full h-full flex items-center justify-center magazine-stage-glow-light select-none touch-none"
+            >
+              {/* Host element where PageFlip creates and manages 3D book pages (active at 1.0x normal viewing with both sides visible) */}
+              <div 
+                ref={bookHostRef} 
+                className="w-full h-full flex items-center justify-center select-none touch-none"
+                style={{
+                  display: displayZoom > 1.05 ? 'none' : 'flex',
+                  pointerEvents: displayZoom > 1.05 ? 'none' : 'auto'
+                }}
+              />
+
+              {/* Ultra-HD Native Full-Resolution Layer (Active when zoomed in > 1.05 to read text in 100% native resolution) */}
+              {displayZoom > 1.05 && currentSpread && (
+                <div 
+                  className="w-full h-full flex items-center justify-center select-none touch-none pointer-events-none"
+                >
+                  <div 
+                    className="flex items-center justify-center shadow-2xl bg-white"
+                    style={{
+                      width: `${currentSpread.totalWidth}px`,
+                      height: `${currentSpread.height}px`,
+                    }}
+                  >
+                    {currentSpread.isCover && orientation === 'landscape' && (
+                      <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
+                    )}
+
+                    {currentSpread.leftUrl && (
+                      <img
+                        src={currentSpread.leftUrl}
+                        alt="Página Izquierda HD"
+                        className="h-full object-contain bg-white select-none"
+                        style={{
+                          width: `${currentSpread.pageWidth}px`,
+                        }}
+                        draggable={false}
+                      />
+                    )}
+                    {currentSpread.rightUrl && (
+                      <img
+                        src={currentSpread.rightUrl}
+                        alt="Página Derecha HD"
+                        className="h-full object-contain bg-white select-none"
+                        style={{
+                          width: `${currentSpread.pageWidth}px`,
+                        }}
+                        draggable={false}
+                      />
+                    )}
+
+                    {currentSpread.isBackCover && orientation === 'landscape' && (
+                      <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Bottom Thumbnails Drawer (Heyzine Shelf - Light Mode) */}
         <AnimatePresence>
-          {showThumbnails && (
+          {showThumbnails && !isIframeBook && (
             <motion.div
               initial={{ opacity: 0, y: 120 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1544,7 +1593,8 @@ export default function FlipbookViewer() {
       </div>
 
       {/* Mobile Compact Bottom Floating Navigation Dock (Light Mode) */}
-      <div className="sm:hidden fixed bottom-3 inset-x-0 z-30 flex justify-center px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
+      {!isIframeBook && (
+        <div className="sm:hidden fixed bottom-3 inset-x-0 z-30 flex justify-center px-3 pointer-events-none pb-[env(safe-area-inset-bottom)]">
         <div className="pointer-events-auto bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-full px-3 py-1.5 shadow-2xl shadow-slate-400/25 flex items-center gap-2">
           {/* Previous */}
           <button
@@ -1659,9 +1709,11 @@ export default function FlipbookViewer() {
           )}
         </div>
       </div>
+      )}
 
       {/* Floating Bottom Control Bar (Light Editorial Layout - Desktop/Tablet) */}
-      <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-3 sm:px-6 border-t border-slate-200/90 items-center justify-between text-slate-800 shadow-xs">
+      {!isIframeBook && (
+        <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-3 sm:px-6 border-t border-slate-200/90 items-center justify-between text-slate-800 shadow-xs">
         
         {/* Left Controls: Thumbnails & HD Reader */}
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1813,6 +1865,7 @@ export default function FlipbookViewer() {
         </div>
 
       </footer>
+      )}
 
       {/* Fullscreen Ultra-HD Page Reading & Inspection Modal */}
       <AnimatePresence>

@@ -57,7 +57,9 @@ import {
   Check,
   FolderArchive,
   Layers,
-  ArrowRight
+  ArrowRight,
+  FileCode,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -65,6 +67,7 @@ import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
 import { cleanSlug, isMagazineSlugTaken, generateUniqueMagazineSlug } from '@/lib/slugHelper';
+import { extractIframeSrc } from '@/lib/iframeHelper';
 import { MAGAZINE_CATEGORIES } from './FlipbookMaker';
 import { Flipbook, FlipbookFolder } from '@/types';
 
@@ -85,6 +88,9 @@ export default function FlipbookList() {
   const [folderDescInput, setFolderDescInput] = useState('');
   const [savingFolder, setSavingFolder] = useState(false);
 
+  // New Flipbook Type Selector Modal (PDF vs Iframe)
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+
   // Batch Move Modal
   const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = useState(false);
   const [batchTargetFolder, setBatchTargetFolder] = useState('');
@@ -101,6 +107,8 @@ export default function FlipbookList() {
   const [editFolder, setEditFolder] = useState('');
   const [editCustomFolder, setEditCustomFolder] = useState('');
   const [editCoverUrl, setEditCoverUrl] = useState('');
+  const [editType, setEditType] = useState<'pdf' | 'iframe'>('pdf');
+  const [editIframeCode, setEditIframeCode] = useState('');
   const [editAutoPlayDefault, setEditAutoPlayDefault] = useState(false);
   const [editAutoPlayInterval, setEditAutoPlayInterval] = useState(5);
   const [editAudioUrl, setEditAudioUrl] = useState('');
@@ -198,6 +206,8 @@ export default function FlipbookList() {
     setEditFolder(fb.folder || '');
     setEditCustomFolder('');
     setEditCoverUrl(fb.coverUrl || '');
+    setEditType(fb.type || (fb.embedUrl ? 'iframe' : 'pdf'));
+    setEditIframeCode(fb.iframeCode || fb.embedUrl || '');
     setEditAutoPlayDefault(fb.autoPlayDefault || false);
     setEditAutoPlayInterval(fb.autoPlayInterval || 5);
     setEditAudioUrl(fb.audioUrl || '');
@@ -294,6 +304,9 @@ export default function FlipbookList() {
         category: finalCategory,
         folder: finalFolder,
         coverUrl: editCoverUrl.trim(),
+        type: editType,
+        iframeCode: editType === 'iframe' ? editIframeCode.trim() : '',
+        embedUrl: editType === 'iframe' ? extractIframeSrc(editIframeCode) : '',
         autoPlayDefault: editAutoPlayDefault,
         autoPlayInterval: Number(editAutoPlayInterval) || 5,
         audioUrl: editAudioUrl.trim(),
@@ -474,11 +487,11 @@ export default function FlipbookList() {
           </div>
           
           <Button 
-            onClick={() => navigate('/admin/flipbooks/nuevo')}
+            onClick={() => setIsNewModalOpen(true)}
             className="h-14 bg-slate-900 text-white hover:bg-[#00AEEF] rounded-2xl px-6 shadow-lg transition-all font-black text-xs uppercase tracking-widest active:scale-95 flex items-center justify-center gap-2 self-start sm:self-auto cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            Nuevo Periódico (PDF)
+            Nuevo Periódico
           </Button>
         </div>
 
@@ -667,7 +680,7 @@ export default function FlipbookList() {
                 </Button>
               )}
               <Button
-                onClick={() => navigate('/admin/flipbooks/nuevo')}
+                onClick={() => setIsNewModalOpen(true)}
                 className="h-12 bg-slate-900 text-white hover:bg-[#00AEEF] rounded-xl px-5 font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
               >
                 Subir nuevo periódico
@@ -744,9 +757,16 @@ export default function FlipbookList() {
                             </span>
                           )}
 
-                          <span className="bg-slate-900/90 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full backdrop-blur-sm w-fit">
-                            {fb.pageUrls?.length || 0} Páginas
-                          </span>
+                          {fb.type === 'iframe' || fb.embedUrl ? (
+                            <span className="bg-purple-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full backdrop-blur-sm w-fit flex items-center gap-1 shadow-sm">
+                              <FileCode className="h-2.5 w-2.5" />
+                              Iframe Embebido
+                            </span>
+                          ) : (
+                            <span className="bg-slate-900/90 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full backdrop-blur-sm w-fit">
+                              {fb.pageUrls?.length || 0} Páginas
+                            </span>
+                          )}
 
                           {fb.autoPlayDefault && (
                             <span className="bg-[#FFF200] text-slate-950 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm w-fit">
@@ -1360,6 +1380,61 @@ export default function FlipbookList() {
                     />
                   </div>
 
+                  {/* Tipo de Publicación e Iframe */}
+                  <div className="space-y-3 p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                        <FileCode className="h-3.5 w-3.5 text-purple-600" />
+                        Tipo de Visualizador
+                      </label>
+                      <span className="text-[10px] font-bold text-purple-700 uppercase">
+                        {editType === 'iframe' ? 'Iframe Embebido (Heyzine, etc.)' : 'Motor 3D (PDF / Imágenes)'}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditType('pdf')}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          editType === 'pdf'
+                            ? 'bg-slate-900 text-white shadow'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        PDF / Imágenes (3D)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditType('iframe')}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          editType === 'iframe'
+                            ? 'bg-purple-600 text-white shadow'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        Iframe Embebido (Heyzine)
+                      </button>
+                    </div>
+
+                    {editType === 'iframe' && (
+                      <div className="space-y-1.5 mt-2">
+                        <label className="text-[10px] font-black uppercase text-purple-900">
+                          Código Iframe o Enlace URL de Heyzine / Visor Externo
+                        </label>
+                        <Textarea
+                          value={editIframeCode}
+                          onChange={(e) => setEditIframeCode(e.target.value)}
+                          placeholder='<iframe allowfullscreen src="https://heyzine.com/flip-book/b301b4a868.html"></iframe> o https://heyzine.com/flip-book/b301b4a868.html'
+                          className="font-mono text-xs rounded-xl border-purple-200 min-h-[75px] bg-white text-slate-800"
+                        />
+                        <p className="text-[10px] text-slate-500">
+                          Detecta automáticamente el código completo `&lt;iframe&gt;` o el link directo.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Cover URL */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-black uppercase tracking-wider text-slate-700">
@@ -1565,6 +1640,90 @@ export default function FlipbookList() {
                     </Button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal Selección: Método de Publicación de Nuevo Periódico */}
+        <AnimatePresence>
+          {isNewModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsNewModalOpen(false)}
+                  className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <div className="text-center space-y-2 mb-8">
+                  <div className="inline-flex p-3.5 rounded-2xl bg-[#00AEEF]/10 text-[#00AEEF] mb-1">
+                    <BookOpen className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                    ¿Cómo deseas crear tu periódico?
+                  </h3>
+                  <p className="text-sm text-slate-500 font-medium">
+                    Selecciona el método de visualización para tu nueva publicación
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Opción 1: Procesar PDF / Imágenes */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNewModalOpen(false);
+                      navigate('/admin/flipbooks/nuevo?mode=pdf');
+                    }}
+                    className="flex flex-col items-center text-center p-6 rounded-2xl border-2 border-slate-200 hover:border-[#00AEEF] hover:bg-[#00AEEF]/5 transition-all group cursor-pointer"
+                  >
+                    <div className="h-14 w-14 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <Upload className="h-7 w-7" />
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-base mb-1">
+                      Procesar PDF / Imágenes
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                      Sube tu PDF o imágenes originales. Se creará el libro 3D interactivo con páginas hojeables y lectura Ultra-HD.
+                    </p>
+                    <div className="mt-4 text-xs font-black text-[#00AEEF] uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      <span>Continuar</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  </button>
+
+                  {/* Opción 2: Insertar Iframe (Heyzine, Calaméo, etc.) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNewModalOpen(false);
+                      navigate('/admin/flipbooks/nuevo?mode=iframe');
+                    }}
+                    className="flex flex-col items-center text-center p-6 rounded-2xl border-2 border-slate-200 hover:border-purple-500 hover:bg-purple-500/5 transition-all group cursor-pointer"
+                  >
+                    <div className="h-14 w-14 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FileCode className="h-7 w-7" />
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-base mb-1">
+                      Insertar Iframe
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                      Pega el código de inserción `&lt;iframe&gt;` o enlace directo de visores externos como <strong>Heyzine</strong>, Calaméo o Issuu.
+                    </p>
+                    <div className="mt-4 text-xs font-black text-purple-600 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                      <span>Insertar</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}

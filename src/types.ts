@@ -123,6 +123,9 @@ export interface Flipbook {
   autoPlayAudio?: boolean;
   category?: string;
   folder?: string; // Subcarpeta o colección (ej: "Los Anfitriones 2025"). Si está vacío, pertenece a la sección principal.
+  type?: 'pdf' | 'iframe'; // Tipo de publicación: archivo procesado (PDF/Imágenes) o Iframe embebido
+  iframeCode?: string; // Código iframe HTML completo (ej: <iframe ...></iframe>)
+  embedUrl?: string; // URL extraída directamente del src del iframe (ej: https://heyzine.com/flip-book/...)
 }
 
 export interface FlipbookFolder {
