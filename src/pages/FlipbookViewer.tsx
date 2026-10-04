@@ -22,7 +22,8 @@ import {
   VolumeX,
   RotateCcw,
   Sparkles,
-  Music
+  Music,
+  Folder
 } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -48,6 +49,7 @@ interface Flipbook {
   autoPlayInterval?: number;
   audioUrl?: string;
   autoPlayAudio?: boolean;
+  folder?: string;
 }
 
 export default function FlipbookViewer() {
@@ -1160,7 +1162,7 @@ export default function FlipbookViewer() {
         <header className="h-16 sm:h-20 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-4 flex items-center justify-between border-b border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-3">
             <Link 
-              to={catalogPath}
+              to={flipbook.folder ? `${catalogPath}?carpeta=${encodeURIComponent(flipbook.folder)}` : catalogPath}
               className="flex h-10 items-center justify-center rounded-xl bg-slate-100 hover:bg-[#ED1C24] transition-all px-3.5 group gap-2 border border-slate-200/60"
               title="Cerrar Periódico"
             >
@@ -1174,13 +1176,21 @@ export default function FlipbookViewer() {
               <h1 className="text-xs font-black tracking-tight uppercase truncate text-slate-900">
                 {flipbook.title}
               </h1>
-              <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-[#00AEEF]">
-                <Calendar className="h-2.5 w-2.5" />
-                <span>
-                  {flipbook.createdAt 
-                    ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
-                    : "Edición Digital"}
-                </span>
+              <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[#00AEEF]">
+                {flipbook.folder && (
+                  <span className="inline-flex items-center gap-1 bg-[#00AEEF]/10 text-[#008dbf] px-1.5 py-0.5 rounded font-black">
+                    <Folder className="h-2.5 w-2.5" />
+                    {flipbook.folder}
+                  </span>
+                )}
+                <div className="flex items-center gap-1 text-slate-500">
+                  <Calendar className="h-2.5 w-2.5" />
+                  <span>
+                    {flipbook.createdAt 
+                      ? format(flipbook.createdAt.toDate(), "d MMM, yyyy", { locale: es }) 
+                      : "Edición Digital"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

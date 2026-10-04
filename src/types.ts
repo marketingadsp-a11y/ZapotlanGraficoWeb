@@ -108,3 +108,28 @@ export interface Ad {
   createdAt: Timestamp;
 }
 
+export interface Flipbook {
+  id: string;
+  title: string;
+  description: string;
+  coverUrl: string;
+  pageUrls: string[];
+  slug: string;
+  createdAt: any;
+  views: number;
+  autoPlayDefault?: boolean;
+  autoPlayInterval?: number;
+  audioUrl?: string;
+  autoPlayAudio?: boolean;
+  category?: string;
+  folder?: string; // Subcarpeta o colección (ej: "Los Anfitriones 2025"). Si está vacío, pertenece a la sección principal.
+}
+
+export interface FlipbookFolder {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  createdAt?: any;
+}
+

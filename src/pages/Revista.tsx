@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase';
 import PublicLayout from '@/components/Layout';
@@ -18,28 +18,18 @@ import {
   Compass,
   Image as ImageIcon,
   Tag,
-  Loader2
+  Loader2,
+  Folder,
+  FolderOpen,
+  ArrowLeft,
+  Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
 import PromoAd from '@/components/PromoAd';
+import { Flipbook } from '@/types';
 
-interface Flipbook {
-  id: string;
-  title: string;
-  description: string;
-  coverUrl: string;
-  pageUrls: string[];
-  slug: string;
-  createdAt: any;
-  views: number;
-  autoPlayDefault?: boolean;
-  autoPlayInterval?: number;
-  audioUrl?: string;
-  autoPlayAudio?: boolean;
-  category?: string;
-}
 
 // Helper para asignar categoría, icono, colores y frase inferior estilo showcase editorial
 export const getMagazineTheme = (fb: Flipbook, index: number) => {
@@ -125,11 +115,18 @@ export default function Revista() {
     ? '/periodico' 
     : '/revista';
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFolder = searchParams.get('carpeta') || null;
+
   useEffect(() => {
-    document.title = isLosAnfitriones 
-      ? 'Los Anfitriones | Periódico Zapotlán Gráfico' 
-      : 'Ediciones del Periódico | Zapotlán Gráfico';
-  }, [isLosAnfitriones]);
+    if (activeFolder) {
+      document.title = `${activeFolder} | Periódico Zapotlán Gráfico`;
+    } else {
+      document.title = isLosAnfitriones 
+        ? 'Los Anfitriones | Periódico Zapotlán Gráfico' 
+        : 'Ediciones del Periódico | Zapotlán Gráfico';
+    }
+  }, [isLosAnfitriones, activeFolder]);
 
   const [flipbooks, setFlipbooks] = useState<Flipbook[]>(dataCache.flipbooks as Flipbook[]);
   const [loading, setLoading] = useState(!dataCache.hasFetchedFlipbooks);
@@ -171,24 +168,60 @@ export default function Revista() {
     return () => unsubscribe();
   }, []);
 
-  // Calcular las categorías disponibles a partir de las revistas cargadas
+  // Separar ediciones de la Sección Principal vs Subcarpetas
+  const { mainFlipbooks, folderGroups } = useMemo(() => {
+    const main: Flipbook[] = [];
+    const map = new Map<string, Flipbook[]>();
+
+    flipbooks.forEach((fb) => {
+      const folder = fb.folder?.trim();
+      if (folder) {
+        if (!map.has(folder)) {
+          map.set(folder, []);
+        }
+        map.get(folder)!.push(fb);
+      } else {
+        main.push(fb);
+      }
+    });
+
+    const groups = Array.from(map.entries()).map(([name, items]) => ({
+      name,
+      count: items.length,
+      items,
+      covers: items.map(i => i.coverUrl).filter(Boolean).slice(0, 3)
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    return { mainFlipbooks: main, folderGroups: groups };
+  }, [flipbooks]);
+
+  // Ediciones para la vista activa (si hay carpeta seleccionada, muestra las de esa carpeta; de lo contrario las principales)
+  const currentActiveEditions = useMemo(() => {
+    if (activeFolder) {
+      const found = folderGroups.find(g => g.name.toLowerCase() === activeFolder.toLowerCase());
+      return found ? found.items : [];
+    }
+    return mainFlipbooks;
+  }, [activeFolder, folderGroups, mainFlipbooks]);
+
+  // Calcular las categorías disponibles en la vista actual
   const categoryFilters = useMemo(() => {
     const categoriesSet = new Set<string>();
-    flipbooks.forEach((fb, idx) => {
+    currentActiveEditions.forEach((fb, idx) => {
       const theme = getMagazineTheme(fb, idx);
       categoriesSet.add(theme.name);
     });
     return ['Todas', ...Array.from(categoriesSet)];
-  }, [flipbooks]);
+  }, [currentActiveEditions]);
 
   // Filtrado reactivo de revistas
   const filteredFlipbooks = useMemo(() => {
-    if (activeCategory === 'Todas') return flipbooks;
-    return flipbooks.filter((fb, idx) => {
+    if (activeCategory === 'Todas') return currentActiveEditions;
+    return currentActiveEditions.filter((fb, idx) => {
       const theme = getMagazineTheme(fb, idx);
       return theme.name.toLowerCase() === activeCategory.toLowerCase();
     });
-  }, [flipbooks, activeCategory]);
+  }, [currentActiveEditions, activeCategory]);
 
   const handleShare = async (fb: Flipbook, e: React.MouseEvent) => {
     e.preventDefault();
@@ -247,30 +280,78 @@ export default function Revista() {
         <PromoAd type="horizontal" className="my-2" />
 
         {/* ========================================================================= */}
-        {/* ESCAPARATE MODERNO DE REVISTAS */}
+        {/* ESCAPARATE MODERNO DE REVISTAS Y SUBCARPETAS */}
         {/* ========================================================================= */}
-        <section className="space-y-6">
+        <section className="space-y-8">
           
-          {/* Header del Escaparate */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-1.5 bg-[#00AEEF] rounded-full" />
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white leading-tight">
-                  {isLosAnfitriones ? 'Los Anfitriones' : 'Ediciones del Periódico'}
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">
-                  {isLosAnfitriones 
-                    ? 'Ediciones especiales, revistas y periódicos interactivos en Los Anfitriones' 
-                    : 'Explora nuestras ediciones impresas y periódicos interactivos digitalizados'}
-                </p>
+          {/* SI ESTAMOS DENTRO DE UNA SUBCARPETA */}
+          {activeFolder ? (
+            <div className="space-y-6">
+              {/* Barra de Navegación / Breadcrumbs */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchParams({});
+                    setActiveCategory('Todas');
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-[#00AEEF] hover:text-white text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-xs font-black uppercase tracking-wider transition-all cursor-pointer group"
+                >
+                  <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                  <span>Volver a la Sección Principal</span>
+                </button>
+
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                  <Link to="/" className="hover:text-slate-700">Inicio</Link>
+                  <span>/</span>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setSearchParams({});
+                      setActiveCategory('Todas');
+                    }}
+                    className="hover:text-slate-700 cursor-pointer"
+                  >
+                    {isLosAnfitriones ? 'Los Anfitriones' : 'Periódicos'}
+                  </button>
+                  <span>/</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-black flex items-center gap-1">
+                    <Folder className="h-3.5 w-3.5 fill-current" />
+                    {activeFolder}
+                  </span>
+                </div>
+              </div>
+
+              {/* Título de la Subcarpeta */}
+              <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 pt-2">
+                <div className="h-8 w-1.5 bg-amber-500 rounded-full" />
+                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-tight">
+                  {activeFolder}
+                </h1>
               </div>
             </div>
+          ) : (
+            /* VISTA PRINCIPAL (RAÍZ): HEADER PRINCIPAL LIMPIO */
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 pt-2">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-1.5 bg-[#00AEEF] rounded-full" />
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tighter text-slate-900 dark:text-white leading-tight">
+                    {isLosAnfitriones ? 'Los Anfitriones' : 'Ediciones del Periódico'}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {isLosAnfitriones 
+                      ? 'Ediciones especiales, revistas y periódicos interactivos en Los Anfitriones' 
+                      : 'Explora nuestras ediciones impresas y periódicos interactivos digitalizados'}
+                  </p>
+                </div>
+              </div>
 
-            <span className="text-xs font-bold text-slate-400 self-start sm:self-auto">
-              {filteredFlipbooks.length} de {flipbooks.length} {flipbooks.length === 1 ? 'edición' : 'ediciones'}
-            </span>
-          </div>
+              <span className="text-xs font-bold text-slate-400 self-start sm:self-auto">
+                {filteredFlipbooks.length} de {mainFlipbooks.length} {mainFlipbooks.length === 1 ? 'edición' : 'ediciones'}
+              </span>
+            </div>
+          )}
 
           {/* Barra de Filtros por Categoría */}
           {!loading && categoryFilters.length > 2 && (
@@ -410,6 +491,12 @@ export default function Revista() {
                             <span className={`font-bold ${theme.color}`}>
                               {theme.name}
                             </span>
+                            {fb.folder && (
+                              <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
+                                <Folder className="h-3 w-3" />
+                                {fb.folder}
+                              </span>
+                            )}
                           </div>
 
                           {/* Título del Periódico */}
@@ -487,6 +574,85 @@ export default function Revista() {
                   );
                 })}
               </AnimatePresence>
+            </div>
+          )}
+
+          {/* Colecciones / Subcarpetas (Siempre abajo de las ediciones principales, sin títulos) */}
+          {!activeFolder && folderGroups.length > 0 && (
+            <div className="pt-6 sm:pt-8 border-t border-slate-100 dark:border-slate-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {folderGroups.map((group) => (
+                  <motion.div
+                    key={group.name}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={() => {
+                      setSearchParams({ carpeta: group.name });
+                      setActiveCategory('Todas');
+                      window.scrollTo({ top: 120, behavior: 'smooth' });
+                    }}
+                    className="group bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06)] hover:shadow-2xl hover:border-amber-400/40 p-5 sm:p-6 flex flex-col justify-between cursor-pointer transition-all relative overflow-hidden"
+                  >
+                    {/* Cover stack visual preview */}
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="relative h-32 w-28 shrink-0 flex items-center justify-center">
+                        {group.covers.length > 0 ? (
+                          <div className="relative w-22 h-30">
+                            {group.covers[2] && (
+                              <img
+                                src={group.covers[2]}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover rounded-xl shadow-md rotate-8 translate-x-4 opacity-50 border border-white/40"
+                              />
+                            )}
+                            {group.covers[1] && (
+                              <img
+                                src={group.covers[1]}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover rounded-xl shadow-md -rotate-4 translate-x-2 opacity-75 border border-white/60"
+                              />
+                            )}
+                            <img
+                              src={group.covers[0]}
+                              alt={group.name}
+                              className="absolute inset-0 w-full h-full object-cover rounded-xl shadow-xl rotate-0 group-hover:scale-105 transition-transform border border-white"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-24 w-24 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                            <Folder className="h-12 w-12 fill-amber-500/20" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Pill count badge */}
+                      <span className="px-3.5 py-1.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-black text-xs uppercase tracking-wider border border-amber-500/20 shrink-0 self-start">
+                        {group.count} {group.count === 1 ? 'edición' : 'ediciones'}
+                      </span>
+                    </div>
+
+                    {/* Folder meta info */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-amber-600 text-[11px] font-black uppercase tracking-wider">
+                        <Folder className="h-3.5 w-3.5 fill-current" />
+                        <span>Colección Especial</span>
+                      </div>
+                      <h4 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-snug group-hover:text-amber-600 transition-colors">
+                        {group.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-2">
+                        Entra para explorar las {group.count} ediciones archivadas en esta carpeta.
+                      </p>
+                    </div>
+
+                    {/* CTA bottom bar */}
+                    <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-black text-amber-600 group-hover:text-amber-500 transition-colors">
+                      <span>Explorar carpeta</span>
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           )}
 

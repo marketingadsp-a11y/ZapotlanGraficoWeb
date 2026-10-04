@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, onSnapshot, query, getDocs, limit } from 'firebase/firestore';
 import { useSettings } from '@/lib/SettingsContext';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -31,7 +31,8 @@ import {
   Cpu,
   Heart,
   Newspaper,
-  Compass
+  Compass,
+  Folder
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,9 @@ export default function FlipbookMaker() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Cultura');
   const [customCategory, setCustomCategory] = useState('');
+  const [folder, setFolder] = useState('');
+  const [customFolder, setCustomFolder] = useState('');
+  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [coverUrl, setCoverUrl] = useState('');
   const [autoPlayDefault, setAutoPlayDefault] = useState(false);
@@ -85,6 +89,27 @@ export default function FlipbookMaker() {
 
   // Drag and drop state
   const [dragActive, setDragActive] = useState(false);
+
+  // Load existing subfolders on mount
+  useEffect(() => {
+    const unsubFolders = onSnapshot(collection(db, 'flipbook_folders'), (snap) => {
+      const names = new Set<string>();
+      snap.forEach(d => {
+        if (d.data().name?.trim()) names.add(d.data().name.trim());
+      });
+      getDocs(query(collection(db, 'flipbooks'), limit(150))).then(fbSnap => {
+        fbSnap.forEach(d => {
+          if (d.data().folder?.trim()) names.add(d.data().folder.trim());
+        });
+        setAvailableFolders(Array.from(names).sort());
+      }).catch(() => {
+        setAvailableFolders(Array.from(names).sort());
+      });
+    }, (err) => {
+      console.warn("Could not load folders:", err);
+    });
+    return () => unsubFolders();
+  }, []);
 
   // Load PDF.js from CDN dynamically to keep build extremely clean and reliable
   useEffect(() => {
@@ -330,11 +355,13 @@ export default function FlipbookMaker() {
           const publicationSlug = await generateUniqueMagazineSlug(title.trim());
 
           const finalCategory = (category === 'Otro' ? customCategory : category).trim() || 'Cultura';
+          const finalFolder = (folder === '__NEW__' ? customFolder : folder).trim();
 
           const newFlipbookDoc = {
             title: title.trim(),
             description: description.trim(),
             category: finalCategory,
+            folder: finalFolder,
             coverUrl: coverUrl || currentCoverUrl,
             pageUrls: pageUrlsList,
             slug: publicationSlug,
@@ -347,6 +374,17 @@ export default function FlipbookMaker() {
           };
 
           const docRef = await addDoc(collection(db, 'flipbooks'), newFlipbookDoc);
+
+          if (finalFolder && !availableFolders.some(f => f.toLowerCase() === finalFolder.toLowerCase())) {
+            try {
+              await addDoc(collection(db, 'flipbook_folders'), {
+                name: finalFolder,
+                description: '',
+                createdAt: Timestamp.now()
+              });
+            } catch {}
+          }
+
           toast.success('¡Flipbook / Periódico publicado correctamente!');
           navigate('/admin/flipbooks');
 
@@ -496,6 +534,54 @@ export default function FlipbookMaker() {
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Subcarpeta / Colección */}
+              <div className="space-y-3 p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                <div className="flex items-center justify-between pl-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-800 flex items-center gap-1.5">
+                    <Folder className="h-4 w-4 text-amber-600" />
+                    Subcarpeta o Colección (Opcional)
+                  </label>
+                  <span className="text-[10px] font-bold text-amber-700">
+                    {folder === '__NEW__' ? (customFolder || 'Nueva subcarpeta') : (folder || 'Sección Principal')}
+                  </span>
+                </div>
+
+                <select
+                  value={folder}
+                  onChange={(e) => {
+                    setFolder(e.target.value);
+                    if (e.target.value !== '__NEW__') setCustomFolder('');
+                  }}
+                  disabled={processing}
+                  className="w-full h-12 px-3.5 rounded-xl border border-slate-200 bg-white font-bold text-xs text-slate-800"
+                >
+                  <option value="">📂 Sección Principal (Afuera, sin subcarpeta)</option>
+                  {availableFolders.map((fName) => (
+                    <option key={fName} value={fName}>
+                      📁 {fName}
+                    </option>
+                  ))}
+                  <option value="__NEW__">➕ Crear nueva subcarpeta...</option>
+                </select>
+
+                {folder === '__NEW__' && (
+                  <div className="pt-1">
+                    <Input
+                      value={customFolder}
+                      onChange={(e) => setCustomFolder(e.target.value)}
+                      placeholder="Escribe el nombre de la subcarpeta (ej. Los Anfitriones 2025)..."
+                      className="h-12 rounded-xl border-amber-300 font-bold text-xs bg-white"
+                      disabled={processing}
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                <p className="text-[9px] text-slate-500 font-medium pl-1 leading-normal">
+                  Si seleccionas una subcarpeta (ej. <strong>&quot;Los Anfitriones 2025&quot;</strong>), este periódico quedará guardado dentro de esa carpeta. Si lo dejas en Sección Principal, estará afuera en el catálogo general.
+                </p>
               </div>
 
               <div className="space-y-2">
