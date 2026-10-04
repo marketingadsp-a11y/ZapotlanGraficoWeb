@@ -32,7 +32,8 @@ import {
   Heart,
   Newspaper,
   Compass,
-  Folder
+  Folder,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,7 @@ export default function FlipbookMaker() {
   const [customFolder, setCustomFolder] = useState('');
   const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [coverUrl, setCoverUrl] = useState('');
   const [autoPlayDefault, setAutoPlayDefault] = useState(false);
   const [autoPlayInterval, setAutoPlayInterval] = useState(5);
@@ -151,25 +153,45 @@ export default function FlipbookMaker() {
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.type === 'application/pdf') {
-        setFile(droppedFile);
-        toast.success(`Archivo seleccionado: ${droppedFile.name}`);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const pdfFile = droppedFiles.find(f => f.type === 'application/pdf');
+      if (pdfFile) {
+        setFile(pdfFile);
+        setImageFiles([]);
+        toast.success(`Archivo PDF seleccionado: ${pdfFile.name}`);
       } else {
-        toast.error('Solo se permite subir archivos en formato PDF.');
+        const validImages = droppedFiles.filter(f => f.type.startsWith('image/'));
+        if (validImages.length > 0) {
+          validImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+          setImageFiles(validImages);
+          setFile(null);
+          toast.success(`${validImages.length} imágenes de páginas seleccionadas en resolución completa original.`);
+        } else {
+          toast.error('Solo se permite subir archivos en formato PDF o imágenes (JPG, PNG, WebP).');
+        }
       }
     }
   };
 
   const handleChangeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      if (selectedFile.type === 'application/pdf') {
-        setFile(selectedFile);
-        toast.success(`Archivo seleccionado: ${selectedFile.name}`);
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      const pdfFile = selectedFiles.find(f => f.type === 'application/pdf');
+      if (pdfFile) {
+        setFile(pdfFile);
+        setImageFiles([]);
+        toast.success(`Archivo PDF seleccionado: ${pdfFile.name}`);
       } else {
-        toast.error('Solo se permite subir archivos en formato PDF.');
+        const validImages = selectedFiles.filter(f => f.type.startsWith('image/'));
+        if (validImages.length > 0) {
+          validImages.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+          setImageFiles(validImages);
+          setFile(null);
+          toast.success(`${validImages.length} imágenes de páginas seleccionadas en resolución completa original.`);
+        } else {
+          toast.error('Solo se permite subir archivos en formato PDF o imágenes (JPG, PNG, WebP).');
+        }
       }
     }
   };
@@ -231,7 +253,7 @@ export default function FlipbookMaker() {
       canvas.toBlob((blob) => {
         if (blob) resolve(blob);
         else reject(new Error('Canvas conversion to blob failed'));
-      }, 'image/jpeg', 0.95); // 95% quality JPEG eliminates compression artifacts on small fonts
+      }, 'image/jpeg', 0.98); // 98% quality JPEG preserves full text clarity
     });
   };
 
@@ -270,8 +292,8 @@ export default function FlipbookMaker() {
       return;
     }
 
-    if (!file) {
-      toast.error('Selecciona un archivo PDF.');
+    if (!file && imageFiles.length === 0) {
+      toast.error('Selecciona un archivo PDF o imágenes de las páginas.');
       return;
     }
 
@@ -280,85 +302,97 @@ export default function FlipbookMaker() {
       return;
     }
 
-    if (!pdfJsLoaded || !window.pdfjsLib) {
-      toast.error('La librería PDF.js todavía se está cargando. Espera un momento.');
-      return;
-    }
-
     setProcessing(true);
     setUploadedPageUrls([]);
     setImgbbErrorLog('');
 
     try {
-      setCurrentStep('Abriendo archivo PDF...');
-      const fileReader = new FileReader();
-      
-      fileReader.onload = async function() {
-        try {
-          const typedArray = new Uint8Array(this.result as ArrayBuffer);
-          const pdfjsLib = window.pdfjsLib;
-          
-          // Load document
-          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-          const totalPages = pdf.numPages;
-          setTotalPagesCount(totalPages);
-          
-          setCurrentStep(`PDF cargado con éxito. Procesando ${totalPages} páginas en Ultra-HD...`);
-          toast.info(`Iniciando conversión Ultra-HD de ${totalPages} páginas...`);
+      const pageUrlsList: string[] = [];
+      let currentCoverUrl = '';
 
-          const pageUrlsList: string[] = [];
-          let currentCoverUrl = '';
+      // CASE 1: DIRECT HIGH-RESOLUTION IMAGES (100% full original resolution, no re-encoding)
+      if (imageFiles.length > 0) {
+        const totalPages = imageFiles.length;
+        setTotalPagesCount(totalPages);
+        setCurrentStep(`Preparando subida de ${totalPages} páginas en resolución completa original...`);
+        toast.info(`Iniciando subida de ${totalPages} páginas en resolución 100% nativa...`);
 
-          // Loop each page dynamically
-          for (let i = 1; i <= totalPages; i++) {
-            setCurrentPageNum(i);
-            setCurrentStep(`Renderizando en Ultra-HD página ${i}/${totalPages}...`);
+        for (let i = 1; i <= totalPages; i++) {
+          const imgFile = imageFiles[i - 1];
+          setCurrentPageNum(i);
+          setCurrentStep(`Subiendo página ${i}/${totalPages} (${imgFile.name}) en resolución original...`);
 
-            // Calculate optimal Ultra-HD scale for newspaper reading
-            // Default PDF is 72 DPI. Newspapers need ~300 DPI (~3200px height) so 7pt-9pt text is crystal clear
-            const page = await pdf.getPage(i);
-            const baseViewport = page.getViewport({ scale: 1.0 });
-            const maxDimension = Math.max(baseViewport.width, baseViewport.height);
-            let optimalScale = 3200 / maxDimension;
-            if (optimalScale < 3.0) optimalScale = 3.0;
-            if (optimalScale > 3.8) optimalScale = 3.8;
+          const uploadedUrl = await uploadPageToImgBB(imgFile, i);
+          pageUrlsList.push(uploadedUrl);
 
-            const viewport = page.getViewport({ scale: optimalScale });
-
-            // Create offscreen canvas for rendering with pure white background
-            const canvas = document.createElement('canvas');
-            canvas.height = Math.round(viewport.height);
-            canvas.width = Math.round(viewport.width);
-
-            const context = canvas.getContext('2d', { alpha: false });
-            if (!context) {
-              throw new Error("Could not initialize 2D canvas context");
-            }
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.imageSmoothingEnabled = true;
-            context.imageSmoothingQuality = 'high';
-
-            // Render PDF page to canvas with high fidelity
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-            // Submit step: Convert to high quality JPEG blob (0.95 quality)
-            setCurrentStep(`Comprimiendo y optimizando página ${i}/${totalPages}...`);
-            const blob = await canvasToBlob(canvas);
-
-            // Submit step: Upload to ImgBB
-            setCurrentStep(`Subiendo página ${i}/${totalPages} a ImgBB en alta resolución...`);
-            const uploadedUrl = await uploadPageToImgBB(blob, i);
-            pageUrlsList.push(uploadedUrl);
-
-            // First page acts automatically as the cover!
-            if (i === 1) {
-              currentCoverUrl = uploadedUrl;
-            }
-
-            // Update local tracking array
-            setUploadedPageUrls([...pageUrlsList]);
+          if (i === 1) {
+            currentCoverUrl = uploadedUrl;
           }
+          setUploadedPageUrls([...pageUrlsList]);
+        }
+      } 
+      // CASE 2: PDF DOCUMENT CONVERTED AT ULTRA-HD PRINT RESOLUTION (~4000px)
+      else if (file) {
+        if (!pdfJsLoaded || !window.pdfjsLib) {
+          toast.error('La librería PDF.js todavía se está cargando. Espera un momento.');
+          setProcessing(false);
+          return;
+        }
+
+        setCurrentStep('Abriendo archivo PDF...');
+        const arrayBuffer = await file.arrayBuffer();
+        const typedArray = new Uint8Array(arrayBuffer);
+        const pdfjsLib = window.pdfjsLib;
+
+        const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+        const totalPages = pdf.numPages;
+        setTotalPagesCount(totalPages);
+
+        setCurrentStep(`PDF cargado con éxito. Procesando ${totalPages} páginas en Ultra-HD...`);
+        toast.info(`Iniciando conversión Ultra-HD de ${totalPages} páginas...`);
+
+        for (let i = 1; i <= totalPages; i++) {
+          setCurrentPageNum(i);
+          setCurrentStep(`Renderizando en Ultra-HD página ${i}/${totalPages}...`);
+
+          const page = await pdf.getPage(i);
+          const baseViewport = page.getViewport({ scale: 1.0 });
+          const maxDimension = Math.max(baseViewport.width, baseViewport.height);
+          // Scale factor targeting ~3800px-4000px print-grade resolution (scale 3.5x to 4.5x)
+          let optimalScale = 3800 / maxDimension;
+          if (optimalScale < 3.5) optimalScale = 3.5;
+          if (optimalScale > 4.5) optimalScale = 4.5;
+
+          const viewport = page.getViewport({ scale: optimalScale });
+
+          const canvas = document.createElement('canvas');
+          canvas.height = Math.round(viewport.height);
+          canvas.width = Math.round(viewport.width);
+
+          const context = canvas.getContext('2d', { alpha: false });
+          if (!context) {
+            throw new Error("Could not initialize 2D canvas context");
+          }
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = 'high';
+
+          await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+          setCurrentStep(`Comprimiendo página ${i}/${totalPages} en Ultra-HD (98% calidad)...`);
+          const blob = await canvasToBlob(canvas);
+
+          setCurrentStep(`Subiendo página ${i}/${totalPages} a ImgBB en alta resolución...`);
+          const uploadedUrl = await uploadPageToImgBB(blob, i);
+          pageUrlsList.push(uploadedUrl);
+
+          if (i === 1) {
+            currentCoverUrl = uploadedUrl;
+          }
+          setUploadedPageUrls([...pageUrlsList]);
+        }
+      }
 
           // Complete uploading step, save to database
           setCurrentStep('Páginas subidas con éxito. Creando publicación en base de datos...');
@@ -398,30 +432,14 @@ export default function FlipbookMaker() {
 
           toast.success('¡Flipbook / Periódico publicado correctamente!');
           navigate('/admin/flipbooks');
-
-        } catch (innerErr: any) {
-          console.error("Internal processing failed: ", innerErr);
-          setImgbbErrorLog(innerErr.message || String(innerErr));
-          toast.error('Ocurrió un error al procesar el PDF o subir las imágenes.');
+        } catch (err: any) {
+          console.error("Processing failed: ", err);
+          setImgbbErrorLog(err.message || String(err));
+          toast.error('Ocurrió un error al procesar o subir las páginas: ' + (err.message || String(err)));
         } finally {
           setProcessing(false);
         }
       };
-
-      fileReader.onerror = function() {
-        toast.error('Error al leer el archivo PDF.');
-        setProcessing(false);
-      };
-
-      // Read as buffer
-      fileReader.readAsArrayBuffer(file);
-
-    } catch (outerErr: any) {
-      console.error(outerErr);
-      setProcessing(false);
-      toast.error('Error al inicializar la tarea del conversor.');
-    }
-  };
 
   return (
     <AdminLayout>
@@ -778,11 +796,13 @@ export default function FlipbookMaker() {
               </div>
             </Card>
 
-            {/* Drop PDF Container */}
+            {/* Drop PDF or Images Container */}
             <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
               <CardContent className="p-8">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">Carga de Documento PDF</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-2">
+                    Carga de Periódico (PDF o Imágenes)
+                  </span>
                   
                   <div
                     onDragEnter={handleDrag}
@@ -792,12 +812,13 @@ export default function FlipbookMaker() {
                     className={cn(
                       "border-2 border-dashed rounded-[2rem] p-10 flex flex-col items-center justify-center transition-all cursor-pointer relative",
                       dragActive ? "border-[#00AEEF] bg-[#00AEEF]/5 scale-98" : "border-slate-200 hover:border-slate-300",
-                      file ? "bg-emerald-50/10 border-emerald-200" : ""
+                      file || imageFiles.length > 0 ? "bg-emerald-50/10 border-emerald-200" : ""
                     )}
                   >
                     <input 
                       type="file"
-                      accept=".pdf"
+                      accept=".pdf,image/jpeg,image/png,image/webp"
+                      multiple
                       onChange={handleChangeFile}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       disabled={processing}
@@ -811,10 +832,27 @@ export default function FlipbookMaker() {
                         <div className="space-y-1">
                           <p className="text-sm font-black text-slate-900 max-w-sm truncate">{file.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB • PDF Listo
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB • PDF Listo para Ultra-HD (300 DPI)
                           </p>
                         </div>
                         <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                          Hacer clic o arrastrar para cambiar
+                        </span>
+                      </div>
+                    ) : imageFiles.length > 0 ? (
+                      <div className="text-center space-y-4">
+                        <div className="mx-auto h-16 w-16 bg-[#00AEEF]/10 text-[#00AEEF] rounded-2xl flex items-center justify-center shadow-lg">
+                          <Layers className="h-8 w-8" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-black text-slate-900">
+                            {imageFiles.length} páginas seleccionadas
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                            {(imageFiles.reduce((acc, curr) => acc + curr.size, 0) / (1024 * 1024)).toFixed(2)} MB • Resolución 100% original
+                          </p>
+                        </div>
+                        <span className="inline-flex rounded-full bg-[#00AEEF]/10 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-[#00AEEF]">
                           Hacer clic o arrastrar para cambiar
                         </span>
                       </div>
@@ -824,8 +862,8 @@ export default function FlipbookMaker() {
                           <Upload className="h-8 w-8 text-slate-400" />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-black text-slate-900 leading-snug">Arrastra tu archivo PDF aquí</p>
-                          <p className="text-xs text-slate-500 font-medium">o haz clic para explorar en tu carpeta local</p>
+                          <p className="text-sm font-black text-slate-900 leading-snug">Arrastra tu PDF o páginas JPG/PNG aquí</p>
+                          <p className="text-xs text-slate-500 font-medium">Soporta documento PDF o selección múltiple de páginas en resolución completa</p>
                         </div>
                       </div>
                     )}
@@ -854,7 +892,7 @@ export default function FlipbookMaker() {
               <div className="pt-8">
                 <Button
                   type="submit"
-                  disabled={processing || !file || !activeImgbbKey}
+                  disabled={processing || (!file && imageFiles.length === 0) || !activeImgbbKey}
                   className="w-full h-14 rounded-2xl bg-white text-slate-900 hover:bg-[#00AEEF] hover:text-white font-black text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   {processing ? (

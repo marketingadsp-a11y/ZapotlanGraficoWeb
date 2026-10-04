@@ -804,141 +804,38 @@ export default function FlipbookViewer() {
       maxShadowOpacity: 0.65,
     });
 
+    // Create native high-resolution HTML page elements for PageFlip
+    flipbook.pageUrls.forEach((url, i) => {
+      const pageEl = document.createElement('div');
+      pageEl.className = 'magazine-page';
+      pageEl.style.width = `${pageWidth}px`;
+      pageEl.style.height = `${pageHeight}px`;
+      if (i === 0 || i === flipbook.pageUrls.length - 1) {
+        pageEl.setAttribute('data-density', 'hard');
+      }
+
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = `Página ${i + 1}`;
+      img.loading = i < 4 ? 'eager' : 'lazy';
+      img.decoding = 'async';
+      img.draggable = false;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+
+      pageEl.appendChild(img);
+      bookEl.appendChild(pageEl);
+    });
+
     try {
-      pageFlip.loadFromImages(flipbook.pageUrls);
+      const pageElements = bookEl.querySelectorAll<HTMLElement>('.magazine-page');
+      pageFlip.loadFromHTML(pageElements);
       const initialOrient = pageFlip.getOrientation() === 'portrait' ? 'portrait' : 'landscape';
       setOrientation(initialOrient);
       updateBookCentering(currentPageRef.current || 0, flipbook.pageUrls.length, initialOrient === 'landscape');
-
-      // Enable High-DPI Retina buffer on the internal canvas for ultra-sharp HD page rendering
-      const ui = (pageFlip as any).ui;
-      const render = (pageFlip as any).render;
-
-      if (ui && render) {
-        const canvas = ui.getCanvas() as HTMLCanvasElement;
-        if (canvas) {
-          const applyRetinaBuffer = () => {
-            // Buffer resolution boost: render canvas at 2.5x to 3.0x pixel density for razor-sharp typography
-            const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2.5), 3.0);
-            canvas.width = Math.round(totalBookWidth * dpr);
-            canvas.height = Math.round(pageHeight * dpr);
-            canvas.style.width = `${totalBookWidth}px`;
-            canvas.style.height = `${pageHeight}px`;
-          };
-
-          ui.resizeCanvas = applyRetinaBuffer;
-          applyRetinaBuffer();
-        }
-
-        const logoImg = new Image();
-        if (settings.logoUrl) {
-          logoImg.crossOrigin = 'anonymous';
-          logoImg.src = settings.logoUrl;
-        }
-
-        const originalDrawFrame = render.drawFrame.bind(render);
-        render.drawFrame = function () {
-          const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2.5), 3.0);
-          const ctx = this.ctx as CanvasRenderingContext2D;
-          if (!ctx) return;
-
-          // Force maximum quality smoothing
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-
-          ctx.save();
-          ctx.scale(dpr, dpr);
-          originalDrawFrame();
-
-          // When in landscape mode and there is no left page (cover view), paint the brand presentation
-          if (this.orientation !== 'portrait' && this.leftPage == null) {
-            const rect = this.getRect();
-            if (!rect) {
-              ctx.restore();
-              return;
-            }
-
-            ctx.save();
-
-            const leftX = rect.left;
-            const leftY = rect.top;
-            const pW = rect.pageWidth;
-            const pH = rect.height;
-
-            // Clip strictly to the left page bounds
-            ctx.beginPath();
-            ctx.rect(leftX, leftY, pW, pH);
-            ctx.clip();
-
-            // Crisp elegant editorial white/ivory cardstock background
-            const bgGrad = ctx.createLinearGradient(leftX, leftY, leftX + pW, leftY + pH);
-            bgGrad.addColorStop(0, '#ffffff');
-            bgGrad.addColorStop(0.6, '#f8fafc');
-            bgGrad.addColorStop(1, '#f1f5f9');
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(leftX, leftY, pW, pH);
-
-            // Subtle brand radial glow (#00AEEF)
-            const glowGrad = ctx.createRadialGradient(
-              leftX + pW / 2, leftY + pH / 2, 5,
-              leftX + pW / 2, leftY + pH / 2, pW * 0.7
-            );
-            glowGrad.addColorStop(0, 'rgba(0, 174, 239, 0.08)');
-            glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = glowGrad;
-            ctx.fillRect(leftX, leftY, pW, pH);
-
-            // Spine shadow overlay on the right edge
-            const spineShadow = ctx.createLinearGradient(leftX + pW - 28, 0, leftX + pW, 0);
-            spineShadow.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            spineShadow.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
-            ctx.fillStyle = spineShadow;
-            ctx.fillRect(leftX + pW - 28, leftY, 28, pH);
-
-            // Draw brand logo or fallback styled typography
-            if (logoImg.complete && logoImg.naturalWidth > 0) {
-              const maxW = pW * 0.84;
-              const maxH = pH * 0.46;
-              const scale = Math.min(maxW / logoImg.naturalWidth, maxH / logoImg.naturalHeight);
-              const drawW = logoImg.naturalWidth * scale;
-              const drawH = logoImg.naturalHeight * scale;
-              const drawX = leftX + (pW - drawW) / 2;
-              const drawY = leftY + (pH - drawH) / 2 - 16;
-
-              ctx.drawImage(logoImg, drawX, drawY, drawW, drawH);
-            } else {
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              
-              ctx.fillStyle = '#00AEEF';
-              ctx.font = `900 ${Math.max(16, Math.floor(pW * 0.085))}px sans-serif`;
-              ctx.fillText("ZAPOTLÁN", leftX + pW / 2, leftY + pH / 2 - 16);
-
-              ctx.fillStyle = '#0f172a';
-              ctx.font = `900 ${Math.max(16, Math.floor(pW * 0.085))}px sans-serif`;
-              ctx.fillText("GRÁFICO", leftX + pW / 2, leftY + pH / 2 + 16);
-            }
-
-            // Footer editorial badge
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = `800 ${Math.max(8, Math.floor(pW * 0.03))}px sans-serif`;
-            ctx.fillText("EDICIÓN DIGITAL IMPRESA", leftX + pW / 2, leftY + pH - 28);
-
-            ctx.restore();
-
-            // If a page is actively flipping over, redraw it on top with full 3D lighting and shadow
-            if (this.flippingPage != null) {
-              this.flippingPage.draw();
-            }
-          }
-
-          ctx.restore();
-        };
-      }
     } catch (err) {
-      console.error("Error loading pages into PageFlip:", err);
+      console.error("Error loading HTML pages into PageFlip:", err);
     }
 
     // Signal book ready when first frame/init is completed
