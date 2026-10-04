@@ -29,6 +29,7 @@ import { dataCache } from '@/lib/dataCache';
 import Secciones from '@/components/Secciones';
 import PromoAd from '@/components/PromoAd';
 import { Flipbook } from '@/types';
+import { bgMusic } from '@/lib/bgMusic';
 
 
 // Helper para asignar categoría, icono, colores y frase inferior estilo showcase editorial
@@ -136,6 +137,9 @@ export default function Revista() {
   const handleOpenMagazine = (fb: Flipbook) => {
     dataCache.activeFlipbook = fb;
     setOpeningId(fb.id);
+    if (fb.autoPlayAudio && fb.audioUrl) {
+      bgMusic.prepareAndPlay(fb.audioUrl);
+    }
   };
 
   // Guardados / Favoritos en LocalStorage

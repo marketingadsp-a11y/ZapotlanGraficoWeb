@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { dataCache } from '@/lib/dataCache';
 import { pageSound } from '@/lib/pageSound';
 import { formatAudioStreamUrl } from '@/lib/audioUrlHelper';
+import { bgMusic } from '@/lib/bgMusic';
 // Import PageFlip from page-flip library
 import { PageFlip } from 'page-flip';
 
@@ -91,8 +92,11 @@ export default function FlipbookViewer() {
   const isDraggingMouseRef = useRef(false);
 
   // Background Audio state
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(bgMusic.isPlaying());
+
+  useEffect(() => {
+    return bgMusic.subscribe(setAudioPlaying);
+  }, []);
 
   // References for DOM and PageFlip instance
   const stageContainerRef = useRef<HTMLDivElement>(null);
@@ -251,51 +255,25 @@ export default function FlipbookViewer() {
 
   // Background Music toggle handler
   const handleToggleMusic = () => {
-    if (!audioRef.current) return;
-    if (audioPlaying) {
-      audioRef.current.pause();
-      setAudioPlaying(false);
-      toast.info("Música de fondo pausada");
+    if (!flipbook?.audioUrl) return;
+    const isNowPlaying = bgMusic.toggle(flipbook.audioUrl);
+    if (isNowPlaying) {
+      toast.success("Reproduciendo música de fondo");
     } else {
-      audioRef.current.play().then(() => {
-        setAudioPlaying(true);
-        toast.success("Reproduciendo música de fondo");
-      }).catch((e) => {
-        toast.error("No se pudo iniciar el audio: " + e.message);
-      });
+      toast.info("Música de fondo pausada");
     }
   };
 
-  // Background Music AutoPlay logic with browser interaction fallback
+  // Background Music AutoPlay logic
   useEffect(() => {
     if (!flipbook?.audioUrl) return;
 
     if (flipbook.autoPlayAudio) {
-      const audio = audioRef.current;
-      if (audio) {
-        audio.play().then(() => {
-          setAudioPlaying(true);
-        }).catch(() => {
-          // Autoplay was blocked by browser policy; wait for first interaction
-          const handleFirstInteraction = () => {
-            if (audioRef.current) {
-              audioRef.current.play().then(() => {
-                setAudioPlaying(true);
-              }).catch(() => {});
-            }
-            window.removeEventListener('pointerdown', handleFirstInteraction);
-            window.removeEventListener('keydown', handleFirstInteraction);
-          };
-          window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
-          window.addEventListener('keydown', handleFirstInteraction, { once: true });
-        });
-      }
+      bgMusic.prepareAndPlay(flipbook.audioUrl);
     }
 
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      bgMusic.stop();
     };
   }, [flipbook?.audioUrl, flipbook?.autoPlayAudio]);
 
@@ -1662,18 +1640,6 @@ export default function FlipbookViewer() {
         </div>
 
       </footer>
-
-      {/* Hidden Background Audio Element */}
-      {flipbook.audioUrl && (
-        <audio
-          ref={audioRef}
-          src={formatAudioStreamUrl(flipbook.audioUrl)}
-          loop
-          preload="auto"
-          onPlay={() => setAudioPlaying(true)}
-          onPause={() => setAudioPlaying(false)}
-        />
-      )}
 
     </div>
   );
