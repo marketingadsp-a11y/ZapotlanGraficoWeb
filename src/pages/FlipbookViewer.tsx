@@ -23,7 +23,8 @@ import {
   RotateCcw,
   Sparkles,
   Music,
-  Folder
+  Folder,
+  ExternalLink
 } from 'lucide-react';
 import { useSettings } from '@/lib/SettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -101,6 +102,122 @@ export default function FlipbookViewer() {
       setIsWaitingAudio(waiting);
     });
   }, []);
+
+  // Ultra-HD Reading & Inspection Engine state (100% full-resolution reader for newspapers)
+  const [isHdModalOpen, setIsHdModalOpen] = useState(false);
+  const [hdModalPage, setHdModalPage] = useState(0);
+  const [hdZoom, setHdZoom] = useState(1);
+  const [hdPan, setHdPan] = useState({ x: 0, y: 0 });
+  const [isHdDragging, setIsHdDragging] = useState(false);
+  const hdDragStartRef = useRef({ x: 0, y: 0 });
+  const hdStageRef = useRef<HTMLDivElement>(null);
+
+  const handleResetHdZoom = useCallback(() => {
+    setHdZoom(1);
+    setHdPan({ x: 0, y: 0 });
+  }, []);
+
+  const handleOpenHdModal = useCallback((pageToOpen?: number) => {
+    const target = typeof pageToOpen === 'number' ? pageToOpen : currentPage;
+    setHdModalPage(target);
+    handleResetHdZoom();
+    setIsHdModalOpen(true);
+  }, [currentPage, handleResetHdZoom]);
+
+  const handleCloseHdModal = useCallback(() => {
+    setIsHdModalOpen(false);
+    if (pageFlipInstanceRef.current && hdModalPage !== currentPage) {
+      pageFlipInstanceRef.current.turnToPage(hdModalPage);
+    }
+  }, [hdModalPage, currentPage]);
+
+  const handleHdZoomChange = useCallback((delta: number) => {
+    setHdZoom(prev => {
+      const next = Math.min(Math.max(1, +(prev + delta).toFixed(2)), 4.5);
+      if (next <= 1.05) {
+        setHdPan({ x: 0, y: 0 });
+      }
+      return next;
+    });
+  }, []);
+
+  const handleHdDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (hdZoom > 1.1) {
+      handleResetHdZoom();
+    } else {
+      setHdZoom(2.5);
+      if (hdStageRef.current) {
+        const rect = hdStageRef.current.getBoundingClientRect();
+        const offsetX = e.clientX - (rect.left + rect.width / 2);
+        const offsetY = e.clientY - (rect.top + rect.height / 2);
+        setHdPan({ x: -offsetX * 1.5, y: -offsetY * 1.5 });
+      }
+    }
+  }, [hdZoom, handleResetHdZoom]);
+
+  const handleHdPointerDown = (e: React.PointerEvent) => {
+    if (hdZoom <= 1.05) return;
+    setIsHdDragging(true);
+    hdDragStartRef.current = {
+      x: e.clientX - hdPan.x,
+      y: e.clientY - hdPan.y
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleHdPointerMove = (e: React.PointerEvent) => {
+    if (!isHdDragging || hdZoom <= 1.05) return;
+    const nextX = e.clientX - hdDragStartRef.current.x;
+    const nextY = e.clientY - hdDragStartRef.current.y;
+    setHdPan({ x: nextX, y: nextY });
+  };
+
+  const handleHdPointerUp = (e: React.PointerEvent) => {
+    if (isHdDragging) {
+      setIsHdDragging(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+  };
+
+  // Keyboard navigation & wheel zoom for Ultra-HD reader
+  useEffect(() => {
+    if (!isHdModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseHdModal();
+      } else if (e.key === 'ArrowLeft') {
+        setHdModalPage(prev => Math.max(0, prev - 1));
+        handleResetHdZoom();
+      } else if (e.key === 'ArrowRight') {
+        setHdModalPage(prev => Math.min((flipbook?.pageUrls?.length || 1) - 1, prev + 1));
+        handleResetHdZoom();
+      } else if (e.key === '+' || e.key === '=') {
+        handleHdZoomChange(0.5);
+      } else if (e.key === '-') {
+        handleHdZoomChange(-0.5);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isHdModalOpen, flipbook?.pageUrls?.length, handleResetHdZoom, handleHdZoomChange, handleCloseHdModal]);
+
+  useEffect(() => {
+    if (!isHdModalOpen) return;
+    const stage = hdStageRef.current;
+    if (!stage) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.35 : -0.35;
+      handleHdZoomChange(delta);
+    };
+
+    stage.addEventListener('wheel', handleWheel, { passive: false });
+    return () => stage.removeEventListener('wheel', handleWheel);
+  }, [isHdModalOpen, handleHdZoomChange]);
 
   // References for DOM and PageFlip instance
   const stageContainerRef = useRef<HTMLDivElement>(null);
@@ -701,7 +818,8 @@ export default function FlipbookViewer() {
         const canvas = ui.getCanvas() as HTMLCanvasElement;
         if (canvas) {
           const applyRetinaBuffer = () => {
-            const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+            // Buffer resolution boost: render canvas at 2.5x to 3.0x pixel density for razor-sharp typography
+            const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2.5), 3.0);
             canvas.width = Math.round(totalBookWidth * dpr);
             canvas.height = Math.round(pageHeight * dpr);
             canvas.style.width = `${totalBookWidth}px`;
@@ -720,7 +838,7 @@ export default function FlipbookViewer() {
 
         const originalDrawFrame = render.drawFrame.bind(render);
         render.drawFrame = function () {
-          const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+          const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2.5), 3.0);
           const ctx = this.ctx as CanvasRenderingContext2D;
           if (!ctx) return;
 
@@ -1231,6 +1349,19 @@ export default function FlipbookViewer() {
 
           {/* Top Right Quick Actions */}
           <div className="flex items-center gap-1.5">
+            {/* Ultra-HD Reader Button */}
+            <Button
+              variant="ghost"
+              onClick={() => handleOpenHdModal()}
+              className="h-9 px-2.5 gap-1.5 rounded-xl bg-[#00AEEF]/10 text-[#00AEEF] hover:bg-[#00AEEF] hover:text-white border border-[#00AEEF]/30 transition-all shadow-xs cursor-pointer"
+              title="Abrir página actual en modo Ultra-HD para lectura de textos pequeños"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline text-[9px] font-black uppercase tracking-wider">
+                Lectura HD
+              </span>
+            </Button>
+
             {/* Background Music Button (if audio configured) */}
             {flipbook.audioUrl && (
               <Button
@@ -1462,6 +1593,16 @@ export default function FlipbookViewer() {
           {/* Mini separator */}
           <div className="h-4 w-px bg-slate-200 my-auto" />
 
+          {/* Ultra HD Reading Mode Toggle */}
+          <button
+            onClick={() => handleOpenHdModal()}
+            className="h-8 px-2 rounded-full bg-[#00AEEF]/15 text-[#00AEEF] hover:bg-[#00AEEF] hover:text-white border border-[#00AEEF]/30 flex items-center gap-1 active:scale-90 transition-all cursor-pointer"
+            title="Lectura Ultra-HD de página"
+          >
+            <Sparkles className="h-3 w-3" />
+            <span className="text-[9px] font-black uppercase">HD</span>
+          </button>
+
           {/* Direct GPU Zoom Toggle on Mobile (No freeze, instant toggle) */}
           <button
             onClick={() => {
@@ -1541,8 +1682,19 @@ export default function FlipbookViewer() {
       {/* Floating Bottom Control Bar (Light Editorial Layout - Desktop/Tablet) */}
       <footer className="hidden sm:flex h-16 shrink-0 z-30 bg-white/85 backdrop-blur-xl px-3 sm:px-6 border-t border-slate-200/90 items-center justify-between text-slate-800 shadow-xs">
         
-        {/* Left Controls: Thumbnails & Reset Zoom */}
+        {/* Left Controls: Thumbnails & HD Reader */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* HD Reading Mode Button */}
+          <Button
+            variant="ghost"
+            onClick={() => handleOpenHdModal()}
+            className="h-10 px-3 rounded-xl gap-2 font-black text-[9px] uppercase tracking-wider transition-all border bg-[#00AEEF]/10 text-[#00AEEF] hover:bg-[#00AEEF] hover:text-white border-[#00AEEF]/30 shadow-xs cursor-pointer"
+            title="Abrir página actual en modo Ultra-HD para leer textos pequeños"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden md:inline">Lectura HD</span>
+          </Button>
+
           {/* Thumbnails Drawer Toggle */}
           <Button
             variant="ghost"
@@ -1680,6 +1832,175 @@ export default function FlipbookViewer() {
         </div>
 
       </footer>
+
+      {/* Fullscreen Ultra-HD Page Reading & Inspection Modal */}
+      <AnimatePresence>
+        {isHdModalOpen && flipbook && flipbook.pageUrls && flipbook.pageUrls.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-2xl flex flex-col select-none touch-none text-white"
+          >
+            {/* Top HD Modal Header Bar */}
+            <div className="h-14 sm:h-16 shrink-0 bg-slate-900/90 border-b border-white/10 px-3 sm:px-6 flex items-center justify-between z-10">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex items-center gap-1.5 bg-[#00AEEF]/20 text-[#00AEEF] px-2.5 py-1 rounded-full border border-[#00AEEF]/30 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Ultra-HD</span>
+                </div>
+                <div className="flex items-center gap-2 truncate">
+                  <span className="text-xs sm:text-sm font-bold text-slate-100 truncate">
+                    Página {hdModalPage + 1} de {totalPages}
+                  </span>
+                  <span className="hidden lg:inline text-[11px] text-slate-400">
+                    • Resolución completa al 100%
+                  </span>
+                </div>
+              </div>
+
+              {/* HD Zoom controls, Open Original & Close */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Preset Zoom Levels */}
+                <div className="hidden sm:flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                  <button
+                    onClick={() => { setHdZoom(1); setHdPan({ x: 0, y: 0 }); }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      hdZoom <= 1.05 ? "bg-[#00AEEF] text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Ajustar
+                  </button>
+                  <button
+                    onClick={() => { setHdZoom(1.8); setHdPan({ x: 0, y: 0 }); }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      Math.abs(hdZoom - 1.8) < 0.2 ? "bg-[#00AEEF] text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    180%
+                  </button>
+                  <button
+                    onClick={() => { setHdZoom(2.8); setHdPan({ x: 0, y: 0 }); }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      Math.abs(hdZoom - 2.8) < 0.2 ? "bg-[#00AEEF] text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    280%
+                  </button>
+                </div>
+
+                {/* Fine Zoom In/Out stepper */}
+                <div className="flex items-center bg-white/10 rounded-xl border border-white/15 overflow-hidden">
+                  <button
+                    onClick={() => handleHdZoomChange(-0.4)}
+                    disabled={hdZoom <= 1.0}
+                    className="h-8 w-8 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20 cursor-pointer"
+                    title="Alejar"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="px-2 text-[10px] font-mono font-bold text-cyan-300 min-w-[42px] text-center">
+                    {Math.round(hdZoom * 100)}%
+                  </span>
+                  <button
+                    onClick={() => handleHdZoomChange(0.4)}
+                    disabled={hdZoom >= 4.4}
+                    className="h-8 w-8 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-20 cursor-pointer"
+                    title="Acercar"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Open original image in new tab */}
+                <a
+                  href={flipbook.pageUrls[hdModalPage]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 w-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 flex items-center justify-center cursor-pointer transition-colors"
+                  title="Abrir imagen original completa en pestaña nueva"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+
+                {/* Close HD Modal */}
+                <button
+                  onClick={handleCloseHdModal}
+                  className="h-9 w-9 rounded-xl bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-slate-200 flex items-center justify-center cursor-pointer transition-colors border border-white/10"
+                  title="Cerrar modo HD"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Main HD Stage with Pan & Zoom */}
+            <div 
+              ref={hdStageRef}
+              onPointerDown={handleHdPointerDown}
+              onPointerMove={handleHdPointerMove}
+              onPointerUp={handleHdPointerUp}
+              onPointerCancel={handleHdPointerUp}
+              onDoubleClick={handleHdDoubleClick}
+              className="flex-1 relative flex items-center justify-center overflow-hidden p-2 sm:p-4 select-none touch-none"
+              style={{
+                cursor: hdZoom > 1.05 ? (isHdDragging ? 'grabbing' : 'grab') : 'zoom-in'
+              }}
+            >
+              {/* Navigation Arrows */}
+              {hdModalPage > 0 && (
+                <button
+                  onClick={() => {
+                    setHdModalPage(prev => Math.max(0, prev - 1));
+                    handleResetHdZoom();
+                  }}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-900/80 hover:bg-[#00AEEF] text-white flex items-center justify-center shadow-2xl backdrop-blur-xl border border-white/20 transition-all cursor-pointer active:scale-95"
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+                </button>
+              )}
+
+              {hdModalPage < totalPages - 1 && (
+                <button
+                  onClick={() => {
+                    setHdModalPage(prev => Math.min(totalPages - 1, prev + 1));
+                    handleResetHdZoom();
+                  }}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-900/80 hover:bg-[#00AEEF] text-white flex items-center justify-center shadow-2xl backdrop-blur-xl border border-white/20 transition-all cursor-pointer active:scale-95"
+                  title="Página siguiente"
+                >
+                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+                </button>
+              )}
+
+              {/* The High-Resolution Page Image Canvas/Container */}
+              <div
+                style={{
+                  transform: `translate3d(${hdPan.x}px, ${hdPan.y}px, 0px) scale(${hdZoom})`,
+                  transition: isHdDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                  transformOrigin: 'center center',
+                }}
+                className="max-h-full max-w-full flex items-center justify-center will-change-transform"
+              >
+                <img
+                  src={flipbook.pageUrls[hdModalPage]}
+                  alt={`Página ${hdModalPage + 1} en Ultra-HD`}
+                  className="max-h-[84vh] max-w-[88vw] object-contain shadow-2xl rounded-sm pointer-events-none"
+                  draggable={false}
+                />
+              </div>
+
+              {/* Bottom hint badge */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 text-[10px] sm:text-xs text-slate-300 pointer-events-none flex items-center gap-2 shadow-lg">
+                <span className="text-[#00AEEF] font-bold">💡 Tip:</span>
+                <span>Doble clic para zoom • Arrastra para leer noticias • Flechas para cambiar de página</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

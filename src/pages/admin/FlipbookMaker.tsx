@@ -225,13 +225,13 @@ export default function FlipbookMaker() {
     }
   };
 
-  // Convert PDF Canvas to Blob to upload to ImgBB
+  // Convert PDF Canvas to Blob to upload to ImgBB with Ultra-HD fidelity
   const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (blob) resolve(blob);
         else reject(new Error('Canvas conversion to blob failed'));
-      }, 'image/jpeg', 0.9); // 90% quality JPEG is crisp and small
+      }, 'image/jpeg', 0.95); // 95% quality JPEG eliminates compression artifacts on small fonts
     });
   };
 
@@ -251,11 +251,11 @@ export default function FlipbookMaker() {
       }
 
       const result = await response.json();
-      if (result && result.data && result.data.url) {
-        return result.data.url;
-      } else {
-        throw new Error("ImgBB no retornó una URL de imagen válida.");
+      if (result && result.data) {
+        const directUrl = result.data.image?.url || result.data.url;
+        if (directUrl) return directUrl;
       }
+      throw new Error("ImgBB no retornó una URL de imagen válida.");
     } catch (err: any) {
       console.error(`Error de subida para página ${pageNum}:`, err);
       throw err;
@@ -303,8 +303,8 @@ export default function FlipbookMaker() {
           const totalPages = pdf.numPages;
           setTotalPagesCount(totalPages);
           
-          setCurrentStep(`PDF cargado con éxito. Procesando ${totalPages} páginas...`);
-          toast.info(`Iniciando conversión de ${totalPages} páginas a Flipbook...`);
+          setCurrentStep(`PDF cargado con éxito. Procesando ${totalPages} páginas en Ultra-HD...`);
+          toast.info(`Iniciando conversión Ultra-HD de ${totalPages} páginas...`);
 
           const pageUrlsList: string[] = [];
           let currentCoverUrl = '';
@@ -312,31 +312,42 @@ export default function FlipbookMaker() {
           // Loop each page dynamically
           for (let i = 1; i <= totalPages; i++) {
             setCurrentPageNum(i);
-            setCurrentStep(`Renderizando e interpretando página ${i}/${totalPages}...`);
+            setCurrentStep(`Renderizando en Ultra-HD página ${i}/${totalPages}...`);
 
-            // Get page viewport
+            // Calculate optimal Ultra-HD scale for newspaper reading
+            // Default PDF is 72 DPI. Newspapers need ~300 DPI (~3200px height) so 7pt-9pt text is crystal clear
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 2.0 }); // High res 2.0 scale for perfect letter reading
+            const baseViewport = page.getViewport({ scale: 1.0 });
+            const maxDimension = Math.max(baseViewport.width, baseViewport.height);
+            let optimalScale = 3200 / maxDimension;
+            if (optimalScale < 3.0) optimalScale = 3.0;
+            if (optimalScale > 3.8) optimalScale = 3.8;
 
-            // Create offscreen canvas for rendering
+            const viewport = page.getViewport({ scale: optimalScale });
+
+            // Create offscreen canvas for rendering with pure white background
             const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            canvas.height = Math.round(viewport.height);
+            canvas.width = Math.round(viewport.width);
 
+            const context = canvas.getContext('2d', { alpha: false });
             if (!context) {
               throw new Error("Could not initialize 2D canvas context");
             }
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
 
-            // Render PDF page to canvas
+            // Render PDF page to canvas with high fidelity
             await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-            // Submit step: Convert to JPEG blob
-            setCurrentStep(`Comprimiendo y preparando página ${i}/${totalPages}...`);
+            // Submit step: Convert to high quality JPEG blob (0.95 quality)
+            setCurrentStep(`Comprimiendo y optimizando página ${i}/${totalPages}...`);
             const blob = await canvasToBlob(canvas);
 
             // Submit step: Upload to ImgBB
-            setCurrentStep(`Subiendo página ${i}/${totalPages} a ImgBB...`);
+            setCurrentStep(`Subiendo página ${i}/${totalPages} a ImgBB en alta resolución...`);
             const uploadedUrl = await uploadPageToImgBB(blob, i);
             pageUrlsList.push(uploadedUrl);
 
