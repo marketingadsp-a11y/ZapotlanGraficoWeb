@@ -11,11 +11,17 @@ const DEFAULT_LOGO = "https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=37
 
 export default async function handler(req: any, res: any) {
   try {
-    const { slugOrId } = req.query;
+    const { slugOrId, catalogPath } = req.query;
     const target = String(slugOrId || '').trim();
+    const section = String(catalogPath || 'losanfitriones').replace(/^\/+/, '').replace(/\/+$/, '');
+    const sectionName = section === 'losanfitriones' 
+      ? 'Los Anfitriones' 
+      : section === 'revista' 
+      ? 'Revista Zapotlán Gráfico' 
+      : 'Periódico Zapotlán Gráfico';
 
-    let title = "Revista Digital";
-    let description = "Lee la edición interactiva de la revista digital de Zapotlán Gráfico.";
+    let title = sectionName;
+    let description = "Lee la edición digital interactiva de Zapotlán Gráfico.";
     let coverUrl = DEFAULT_LOGO;
     let canonicalSlug = target || "edicion";
 
@@ -82,17 +88,17 @@ export default async function handler(req: any, res: any) {
     const safeTitle = escapeHtml(title);
     const safeDesc = escapeHtml(description);
     const safeCover = escapeHtml(coverUrl);
-    const canonicalUrl = `https://www.zapotlangrafico.com/revista/${encodeURIComponent(canonicalSlug)}`;
+    const canonicalUrl = `https://www.zapotlangrafico.com/${section}/${encodeURIComponent(canonicalSlug)}`;
 
     const html = `<!doctype html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${safeTitle} | Revista Zapotlán Gráfico</title>
+  <title>${safeTitle} | ${sectionName}</title>
   <meta name="description" content="${safeDesc}" />
   <meta property="og:site_name" content="Zapotlán Gráfico" />
-  <meta property="og:title" content="${safeTitle} | Revista Zapotlán Gráfico" />
+  <meta property="og:title" content="${safeTitle} | ${sectionName}" />
   <meta property="og:description" content="${safeDesc}" />
   <meta property="og:image" content="${safeCover}" />
   <meta property="og:image:secure_url" content="${safeCover}" />
@@ -103,7 +109,7 @@ export default async function handler(req: any, res: any) {
   <meta property="og:url" content="${canonicalUrl}" />
   <meta property="og:type" content="article" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="${safeTitle} | Revista Zapotlán Gráfico" />
+  <meta name="twitter:title" content="${safeTitle} | ${sectionName}" />
   <meta name="twitter:description" content="${safeDesc}" />
   <meta name="twitter:image" content="${safeCover}" />
   <meta http-equiv="refresh" content="0; url=${canonicalUrl}" />
@@ -113,7 +119,7 @@ export default async function handler(req: any, res: any) {
     <img src="${safeCover}" alt="${safeTitle}" style="max-width: 280px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-bottom: 20px;" />
     <h1 style="font-size: 20px; margin: 0 0 10px 0;">${safeTitle}</h1>
     <p style="font-size: 14px; color: #94a3b8; max-width: 400px; margin: 0 auto 20px auto;">${safeDesc}</p>
-    <a href="${canonicalUrl}" style="display: inline-block; background: #00AEEF; color: #fff; padding: 10px 24px; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 14px;">Abrir Revista</a>
+    <a href="${canonicalUrl}" style="display: inline-block; background: #00AEEF; color: #fff; padding: 10px 24px; border-radius: 9999px; text-decoration: none; font-weight: bold; font-size: 14px;">Abrir Edición</a>
   </div>
   <script>
     window.location.replace("${canonicalUrl}");

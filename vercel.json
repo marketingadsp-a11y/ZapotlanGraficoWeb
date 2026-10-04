@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     {
-      "source": "/revista/(.*)",
+      "source": "/(revista|periodico|losanfitriones)/(.*)",
       "has": [
         {
           "type": "header",
@@ -10,7 +10,7 @@
           "value": ".*(facebookexternalhit|Facebook|Facebot|WhatsApp|whatsapp|Twitterbot|twitterbot|TelegramBot|telegram|LinkedInBot|Pinterest|Slackbot|Discordbot).*"
         }
       ],
-      "destination": "/api/magazine-ssr?slugOrId=$1"
+      "destination": "/api/magazine-ssr?slugOrId=$2&catalogPath=$1"
     },
     {
       "source": "/nota/(.*)",
