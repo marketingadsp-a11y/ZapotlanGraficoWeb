@@ -86,6 +86,7 @@ export default function FlipbookViewer() {
   const [isMuted, setIsMuted] = useState(pageSound.getMuted());
   // Direct GPU Zoom & Pan Engine state
   const [displayZoom, setDisplayZoom] = useState(1);
+  const [spreadDims, setSpreadDims] = useState({ pageWidth: 0, pageHeight: 0, totalWidth: 0 });
   const currentScaleRef = useRef(1);
   const currentPanRef = useRef({ x: 0, y: 0 });
   const zoomWrapperRef = useRef<HTMLDivElement>(null);
@@ -784,6 +785,7 @@ export default function FlipbookViewer() {
     const totalBookWidth = isMobile ? pageWidth : pageWidth * 2;
     bookEl.style.width = `${totalBookWidth}px`;
     bookEl.style.height = `${pageHeight}px`;
+    setSpreadDims({ pageWidth, pageHeight, totalWidth: totalBookWidth });
 
     // Initialize PageFlip instance with fixed size matching available space
     const pageFlip = new PageFlip(bookEl, {
@@ -804,38 +806,13 @@ export default function FlipbookViewer() {
       maxShadowOpacity: 0.65,
     });
 
-    // Create native high-resolution HTML page elements for PageFlip
-    flipbook.pageUrls.forEach((url, i) => {
-      const pageEl = document.createElement('div');
-      pageEl.className = 'magazine-page';
-      pageEl.style.width = `${pageWidth}px`;
-      pageEl.style.height = `${pageHeight}px`;
-      if (i === 0 || i === flipbook.pageUrls.length - 1) {
-        pageEl.setAttribute('data-density', 'hard');
-      }
-
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = `Página ${i + 1}`;
-      img.loading = i < 4 ? 'eager' : 'lazy';
-      img.decoding = 'async';
-      img.draggable = false;
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-
-      pageEl.appendChild(img);
-      bookEl.appendChild(pageEl);
-    });
-
     try {
-      const pageElements = bookEl.querySelectorAll<HTMLElement>('.magazine-page');
-      pageFlip.loadFromHTML(pageElements);
+      pageFlip.loadFromImages(flipbook.pageUrls);
       const initialOrient = pageFlip.getOrientation() === 'portrait' ? 'portrait' : 'landscape';
       setOrientation(initialOrient);
       updateBookCentering(currentPageRef.current || 0, flipbook.pageUrls.length, initialOrient === 'landscape');
     } catch (err) {
-      console.error("Error loading HTML pages into PageFlip:", err);
+      console.error("Error loading images into PageFlip:", err);
     }
 
     // Signal book ready when first frame/init is completed
@@ -1083,6 +1060,66 @@ export default function FlipbookViewer() {
       return `Págs. ${left} - ${right} de ${totalPages}`;
     }
   };
+
+  const getCurrentSpread = () => {
+    if (!flipbook || !flipbook.pageUrls || flipbook.pageUrls.length === 0) return null;
+    const total = flipbook.pageUrls.length;
+    const pW = spreadDims.pageWidth || 500;
+    const pH = spreadDims.pageHeight || 700;
+    const tW = spreadDims.totalWidth || (pW * 2);
+
+    if (orientation === 'portrait') {
+      return {
+        leftUrl: null,
+        rightUrl: flipbook.pageUrls[currentPage] || flipbook.pageUrls[0],
+        pageWidth: pW,
+        height: pH,
+        totalWidth: pW,
+        isCover: currentPage === 0,
+        isBackCover: false
+      };
+    }
+
+    // Landscape mode
+    if (currentPage === 0) {
+      return {
+        leftUrl: null,
+        rightUrl: flipbook.pageUrls[0],
+        pageWidth: pW,
+        height: pH,
+        totalWidth: tW,
+        isCover: true,
+        isBackCover: false
+      };
+    }
+
+    if (currentPage >= total - 1 && total % 2 === 0) {
+      return {
+        leftUrl: flipbook.pageUrls[total - 1],
+        rightUrl: null,
+        pageWidth: pW,
+        height: pH,
+        totalWidth: tW,
+        isCover: false,
+        isBackCover: true
+      };
+    }
+
+    const leftIdx = currentPage % 2 === 1 ? currentPage : currentPage - 1;
+    const rightIdx = leftIdx + 1;
+
+    return {
+      leftUrl: leftIdx >= 0 && leftIdx < total ? flipbook.pageUrls[leftIdx] : null,
+      rightUrl: rightIdx >= 0 && rightIdx < total ? flipbook.pageUrls[rightIdx] : null,
+      pageWidth: pW,
+      height: pH,
+      totalWidth: tW,
+      isCover: false,
+      isBackCover: false
+    };
+  };
+
+  const currentSpread = getCurrentSpread();
 
   if (!flipbook) {
     return (
@@ -1387,14 +1424,61 @@ export default function FlipbookViewer() {
           }}
           className="relative w-full h-full flex items-center justify-center magazine-stage-glow-light select-none touch-none"
         >
-          {/* Host element where PageFlip creates and manages pages */}
+          {/* Host element where PageFlip creates and manages 3D book pages (active at 1.0x normal viewing with both sides visible) */}
           <div 
             ref={bookHostRef} 
             className="w-full h-full flex items-center justify-center select-none touch-none"
             style={{
+              display: displayZoom > 1.05 ? 'none' : 'flex',
               pointerEvents: displayZoom > 1.05 ? 'none' : 'auto'
             }}
           />
+
+          {/* Ultra-HD Native Full-Resolution Layer (Active when zoomed in > 1.05 to read text in 100% native resolution) */}
+          {displayZoom > 1.05 && currentSpread && (
+            <div 
+              className="w-full h-full flex items-center justify-center select-none touch-none pointer-events-none"
+            >
+              <div 
+                className="flex items-center justify-center shadow-2xl bg-white"
+                style={{
+                  width: `${currentSpread.totalWidth}px`,
+                  height: `${currentSpread.height}px`,
+                }}
+              >
+                {currentSpread.isCover && orientation === 'landscape' && (
+                  <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
+                )}
+
+                {currentSpread.leftUrl && (
+                  <img
+                    src={currentSpread.leftUrl}
+                    alt="Página Izquierda HD"
+                    className="h-full object-contain bg-white select-none"
+                    style={{
+                      width: `${currentSpread.pageWidth}px`,
+                    }}
+                    draggable={false}
+                  />
+                )}
+                {currentSpread.rightUrl && (
+                  <img
+                    src={currentSpread.rightUrl}
+                    alt="Página Derecha HD"
+                    className="h-full object-contain bg-white select-none"
+                    style={{
+                      width: `${currentSpread.pageWidth}px`,
+                    }}
+                    draggable={false}
+                  />
+                )}
+
+                {currentSpread.isBackCover && orientation === 'landscape' && (
+                  <div style={{ width: `${currentSpread.pageWidth}px`, height: `${currentSpread.height}px` }} />
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Bottom Thumbnails Drawer (Heyzine Shelf - Light Mode) */}
